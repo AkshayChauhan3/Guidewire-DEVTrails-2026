@@ -409,4 +409,12 @@ Every phase of this system, from the KYC verification in Phase 1 to the GPS spoo
 
 ---
 
+## 🎥 Project Explanation Video
+
+[![Watch the Explanation](https://img.youtube.com/vi/T-fMCFsDs2w/0.jpg)](https://www.youtube.com/watch?v=T-fMCFsDs2w)
+
+## 📊 Project Presentation
+
+👉 [Click here to view the PPT](https://drive.google.com/file/d/1XXD0E_ErwPjerYcVKF2ChfQLCuKcAcLo/view?usp=sharing)
+
 *Built for Guidewire DEVTrails University Hackathon*
