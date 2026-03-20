@@ -381,7 +381,7 @@ All business logic, ML pipelines, and API endpoints are built in **Python** and 
 | Location Matching | Haversine formula for GPS / cell tower verification |
 | Social Distress Score | Reddit API (free tier) for sentiment analysis |
 | Face Match & OCR | OpenCV + Tesseract |
-| Database | PostgreSQL / SQLite for session and claim logs |
+| Database | MongoDB Atlas |
 
 ---
 
