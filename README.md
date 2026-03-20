@@ -409,4 +409,4 @@ Every phase of this system, from the KYC verification in Phase 1 to the GPS spoo
 
 ---
 
-*Built for Guidewire DEVTrails University Hackathon — in partnership with EY*
+*Built for Guidewire DEVTrails University Hackathon*
