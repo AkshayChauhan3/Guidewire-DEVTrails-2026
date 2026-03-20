@@ -128,7 +128,7 @@ Based on weekly working hours, each user will be automatically categorized as fo
 | Weekend Worker | More than 60% of hours on Saturday and Sunday |
 | Casual | Less than 15 hrs/week |
 
-This categorization will be updated on a **weekly basis** and reflected on the user's profile.
+This categorization will be reflected on the user's profile.
 
 ---
 
