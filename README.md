@@ -6,9 +6,9 @@
 
 ## The Problem
 
-Gig workers are the backbone of India's food delivery ecosystem — yet they remain one of the most financially vulnerable groups in the workforce. No fixed salary. No insurance. No way to prove they were genuinely stranded during a flood or a natural disaster.
-
-We built GigShield to change that. Every phase of this system is designed with one goal in mind — so that when a delivery partner has a bad day because of a flood, a heatwave, or a natural disaster, they don't have to fight to prove it. The system does that for them, fairly and transparently.
+Gig workers are the backbone of India's food delivery ecosystem — yet they remain one of the most financially vulnerable groups in the workforce. No fixed salary. No insurance. No way to prove they were genuinely stranded during a flood, a natural disaster, or even a sudden curfew on their street.
+The threats to a delivery partner's income aren't always natural. Sometimes it's a protest blocking the entire city. Sometimes it's a communal curfew that shuts down their area overnight. Sometimes it's heavy waterlogging, a heatwave, or a road closure from a local strike — none of which are their fault, all of which drain their daily earnings with zero compensation.
+We built GigShield to change that. Every phase of this system is designed with one goal in mind — so that when a delivery partner has a bad day because of a flood, a heatwave, a protest, a curfew, or any crisis they had no control over, they don't have to fight to prove it. The system does that for them, fairly and transparently.
 
 ---
 
