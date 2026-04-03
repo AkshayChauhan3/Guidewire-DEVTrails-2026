@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GigShield Demo News Generator</title>
+  <style>
+    :root {
+      --bg: #09111f;
+      --panel: rgba(14, 28, 50, 0.92);
+      --line: rgba(255, 255, 255, 0.1);
+      --text: #eef3ff;
+      --muted: #98a7c2;
+      --accent: #ff7a59;
+      --accent-2: #5cd0c4;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(92, 208, 196, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(255, 122, 89, 0.15), transparent 28%),
+        linear-gradient(180deg, #07101c, #0d1728 55%, #08111c);
+      min-height: 100vh;
+      padding: 32px 18px 48px;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 34px; line-height: 1; margin-bottom: 12px; }
+    .lead { color: var(--muted); line-height: 1.5; margin-bottom: 22px; }
+    label {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .field { margin-bottom: 16px; }
+    input, select, textarea, button {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      padding: 14px 16px;
+      font-size: 15px;
+    }
+    textarea { min-height: 96px; resize: vertical; }
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    button {
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 150ms ease, opacity 150ms ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #ff9b54);
+      color: #111;
+      border: none;
+    }
+    .secondary {
+      background: linear-gradient(135deg, var(--accent-2), #78e0d0);
+      color: #041019;
+      border: none;
+    }
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .pill {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+    .headline { font-size: 19px; line-height: 1.3; margin-bottom: 10px; }
+    .summary { color: var(--muted); line-height: 1.45; font-size: 14px; }
+    .meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 16px;
+    }
+    .status {
+      margin-top: 18px;
+      color: var(--muted);
+      min-height: 20px;
+    }
+    @media (max-width: 900px) {
+      .wrap { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h1>Demo News Forge</h1>
+      <p class="lead">Generate fake disaster headlines for payouts and optionally push them into the Django demo event API.</p>
+
+      <div class="field">
+        <label for="phone">Your Phone Number</label>
+        <input id="phone" type="tel" placeholder="10-digit mobile number" maxlength="10" pattern="[0-9]{10}">
+      </div>
+
+      <div class="field">
+        <label for="city">City</label>
+        <input id="city" value="Mumbai">
+      </div>
+
+      <div class="field">
+        <label for="area">Area</label>
+        <input id="area" value="Andheri East">
+      </div>
+
+      <div class="field">
+        <label for="eventType">Event Type</label>
+        <select id="eventType">
+          <option value="flood">Flood</option>
+          <option value="high_rain">High Rain</option>
+          <option value="high_temperature">High Temperature</option>
+          <option value="strike">Strike</option>
+          <option value="protest">Protest</option>
+          <option value="curfew">Curfew</option>
+          <option value="disaster">Disaster</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="severity">Severity</label>
+        <select id="severity">
+          <option value="moderate">Moderate</option>
+          <option value="severe" selected>Severe</option>
+          <option value="emergency">Emergency</option>
+          <option value="mild">Mild</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="summary">Summary</label>
+        <textarea id="summary">Delivery routes disrupted, rider movement down, and platform operations delayed across the area.</textarea>
+      </div>
+
+      <div class="btn-row">
+        <button class="primary" id="generateBtn">Generate Headlines</button>
+        <button class="secondary" id="publishBtn">Publish to Backend</button>
+      </div>
+
+      <div class="status" id="statusText">Ready.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Generated Stories</h2>
+      <p class="lead">Use one of these headlines to trigger claims in the app. Publishing stores the selected headline as an active demo event.</p>
+      <div class="news-grid" id="newsGrid"></div>
+    </section>
+  </div>
+
+  <script>
+    const templates = {
+      flood: [
+        "{city} flood alert strands delivery workers near {area}",
+        "Waterlogging shuts key roads across {area} in {city}",
+        "{city} riders face payout losses after flood surge in {area}"
+      ],
+      high_rain: [
+        "Heavy rain warning slows orders across {area}, {city}",
+        "{city} dispatch network hit by high rainfall in {area}",
+        "Continuous showers reduce gig worker activity in {area}"
+      ],
+      high_temperature: [
+        "{city} heat spike crosses safety threshold in {area}",
+        "High temperature emergency disrupts afternoon shifts in {area}",
+        "Extreme heat lowers rider activity across {city}"
+      ],
+      strike: [
+        "Transport strike freezes deliveries around {area}, {city}",
+        "{city} rider movement drops as strike expands near {area}",
+        "Strike pressure leaves platforms understaffed in {area}"
+      ],
+      protest: [
+        "Street protest blocks last-mile movement in {area}",
+        "{city} deliveries delayed after protest crowds gather in {area}",
+        "Local protest creates payout losses for riders in {area}"
+      ],
+      curfew: [
+        "Curfew notice halts evening delivery windows in {area}",
+        "{city} imposes curfew restrictions affecting gig workers",
+        "Curfew enforcement cuts order volume across {area}"
+      ],
+      disaster: [
+        "Emergency disruption declared across {area}, {city}",
+        "{city} disaster response impacts route access in {area}",
+        "Gig workers report severe payout drop amid crisis in {area}"
+      ]
+    };
+
+    let generated = [];
+    let selectedIndex = 0;
+
+    function fill(template, city, area) {
+      return template.replaceAll("{city}", city).replaceAll("{area}", area);
+    }
+
+    function generateStories() {
+      const city = document.getElementById("city").value.trim() || "Mumbai";
+      const area = document.getElementById("area").value.trim() || "Central Zone";
+      const eventType = document.getElementById("eventType").value;
+      const severity = document.getElementById("severity").value;
+      const summary = document.getElementById("summary").value.trim();
+
+      generated = (templates[eventType] || templates.disaster).map((template, index) => ({
+        headline: fill(template, city, area),
+        city,
+        area,
+        event_type: eventType,
+        severity,
+        summary: `${summary} Demo headline ${index + 1}.`
+      }));
+      selectedIndex = 0;
+      renderStories();
+      setStatus(`Generated ${generated.length} ${eventType} headlines for ${city}.`);
+    }
+
+    function renderStories() {
+      const grid = document.getElementById("newsGrid");
+      grid.innerHTML = "";
+      generated.forEach((story, index) => {
+        const card = document.createElement("article");
+        card.className = "card";
+        card.style.outline = index === selectedIndex ? "2px solid rgba(255,122,89,0.7)" : "none";
+        card.innerHTML = `
+          <div class="pill">${story.event_type} • ${story.severity}</div>
+          <div class="headline">${story.headline}</div>
+          <div class="summary">${story.summary}</div>
+          <div class="meta">
+            <span>${story.city}</span>
+            <span>${story.area}</span>
+          </div>
+        `;
+        card.addEventListener("click", () => {
+          selectedIndex = index;
+          renderStories();
+        });
+        grid.appendChild(card);
+      });
+    }
+
+    async function publishSelected() {
+      if (!generated.length) {
+        generateStories();
+      }
+      const story = generated[selectedIndex];
+      
+      // ✅ Always ask for phone number - check both input field and prompt
+      let phone = document.getElementById("phone")?.value?.trim() || "";
+      
+      if (!phone) {
+        phone = prompt("Enter your 10-digit mobile number:", "");
+      }
+      
+      if (!phone) {
+        setStatus("❌ Phone number is required to publish event.");
+        return;
+      }
+      
+      // ✅ Validate phone number format (10 digits)
+      if (!/^\d{10}$/.test(phone.trim())) {
+        setStatus("❌ Invalid phone number. Please enter 10 digits only.");
+        return;
+      }
+      
+      setStatus("⏳ Publishing to backend...");
+      const publishBtn = document.getElementById("publishBtn");
+      publishBtn.disabled = true;
+      publishBtn.style.opacity = "0.5";
+
+      try {
+        // ✅ Comprehensive city coordinates for all major Indian cities
+        const cityCoordinates = {
+          "mumbai": { lat: 19.0760, lng: 72.8777 },
+          "delhi": { lat: 28.7041, lng: 77.1025 },
+          "bangalore": { lat: 12.9716, lng: 77.5946 },
+          "bengaluru": { lat: 12.9716, lng: 77.5946 },
+          "hyderabad": { lat: 17.3850, lng: 78.4867 },
+          "kolkata": { lat: 22.5726, lng: 88.3639 },
+          "chennai": { lat: 13.0827, lng: 80.2707 },
+          "pune": { lat: 18.5204, lng: 73.8567 },
+          "ahmedabad": { lat: 23.0225, lng: 72.5714 },
+          "jaipur": { lat: 26.9124, lng: 75.7873 },
+          "lucknow": { lat: 26.8467, lng: 80.9462 },
+          "vadodara": { lat: 22.3072, lng: 73.1812 },
+          "surat": { lat: 21.1702, lng: 72.8311 },
+          "indore": { lat: 22.7196, lng: 75.8577 },
+          "nagpur": { lat: 21.1458, lng: 79.0882 },
+          "chandigarh": { lat: 30.7333, lng: 76.7794 },
+          "kochi": { lat: 9.9312, lng: 76.2673 },
+          "bhopal": { lat: 23.1815, lng: 79.9864 },
+          "visakhapatnam": { lat: 17.6869, lng: 83.2185 },
+          "coimbatore": { lat: 11.0066, lng: 76.9655 },
+          "guwahati": { lat: 26.1445, lng: 91.7362 },
+        };
+        
+        // ✅ Use city from form field, fallback to story city
+        const formCity = document.getElementById("city").value.trim() || story.city;
+        const cityLower = formCity.toLowerCase();
+        const coords = cityCoordinates[cityLower] || { lat: 19.0760, lng: 72.8777 };
+
+        // ✅ Optimized request - minimal payload
+        const payload = {
+          phone: phone.trim(),
+          city: story.city,
+          area: story.area,
+          event_type: story.event_type,
+          severity: story.severity,
+          headline: story.headline,
+          summary: story.summary,
+          event_latitude: coords.lat,
+          event_longitude: coords.lng,
+          source: "fake-news-web",
+          is_active: true
+        };
+
+        // ✅ Fast backend request with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+        const response = await fetch("http://127.0.0.1:8000/api/demo-events/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorMsg = `Backend error: ${response.status}`;
+          try {
+            const errorData = await response.json();
+            errorMsg = errorData.message || errorMsg;
+          } catch (e) {
+            // Ignore JSON parse errors
+          }
+          throw new Error(errorMsg);
+        }
+
+        const result = await response.json();
+        const eventId = result.event?.id || result.id || 'created';
+        
+        setStatus(`✅ SUCCESS! Event #${eventId} published to backend • Phone: ${phone}`);
+        
+        // ✅ Clear phone if from input for next use
+        document.getElementById("phone").value = "";
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          setStatus(`❌ Request timeout. Backend took too long to respond.`);
+        } else {
+          setStatus(`❌ Publish failed: ${error.message}`);
+        }
+      } finally {
+        publishBtn.disabled = false;
+        publishBtn.style.opacity = "1";
+      }
+    }
+
+    function setStatus(message) {
+      document.getElementById("statusText").textContent = message;
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", generateStories);
+    document.getElementById("publishBtn").addEventListener("click", publishSelected);
+    generateStories();
+  </script>
+</body>
+</html>

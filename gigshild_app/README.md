@@ -1,17 +1,51 @@
-# gigshild_app
+# GigShield - Flutter Frontend
 
-A new Flutter project.
+This is the mobile/web frontend for **GigShield**, an insurance protection app for gig workers.
 
-## Getting Started
+## Quick Start
 
-This project is a starting point for a Flutter application.
+For complete setup and running instructions, see the **[main README.md](../README.md)** in the project root.
 
-A few resources to get you started if this is your first Flutter project:
+### Fast Start
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```bash
+# Get dependencies
+flutter pub get
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+# Run on device/emulator
+flutter run
+
+# Run on web browser
+flutter run -d chrome
+```
+
+## Project Structure
+
+- `lib/main.dart` - App entry point
+- `lib/api_service.dart` - Backend API client
+- `lib/login_page.dart` - Authentication
+- `lib/home_screen.dart` - Main dashboard
+- `lib/claim_screen.dart` - Claims view
+- `lib/premium_screen.dart` - Premium & wallet
+- `lib/session_history_screen.dart` - OCR uploads
+- `lib/profile_screen.dart` - User profile
+
+## Dependencies
+
+See `pubspec.yaml` for all Flutter packages used:
+- `http` - API calls
+- `image_picker` - Photo selection
+- `geolocator` - GPS location
+- `google_mlkit_text_recognition` - Text recognition
+- `device_preview` - Device preview
+
+## Documentation
+
+For complete documentation including:
+- Installation & setup
+- How the app works
+- API endpoints
+- Data models
+- Testing
+
+👉 See [README.md](../README.md) in project root

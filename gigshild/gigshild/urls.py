@@ -21,6 +21,9 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('registor_and_login.urls')),  # → /api/register/ ✅
+    path('api/', include('sessions.urls')),  # → /api/register/ ✅
+    path('api/', include('apianddata.urls')),
+    path('api/', include('premiumandclaims.urls')),
 ]
 
 from django.conf import settings

@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>GigShield needs camera access to capture selfies for session verification.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>GigShield uses your location to record where a work session starts, ends, and is verified.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

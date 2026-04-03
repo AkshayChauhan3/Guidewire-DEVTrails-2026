@@ -16,8 +16,13 @@ import 'main_nevigation.dart';
 
 class OTPPage extends StatefulWidget {
   final String phoneNumber;
-  
-  const OTPPage({super.key, required this.phoneNumber});
+  final Map<String, dynamic>? partnerData;
+
+  const OTPPage({
+    super.key,
+    required this.phoneNumber,
+    this.partnerData,
+  });
 
   @override
   State<OTPPage> createState() => _OTPPageState();
@@ -33,6 +38,7 @@ class _OTPPageState extends State<OTPPage> {
     if (otp.length == 4) {
       // Save the phone number globally so it can be used to load data
       AppState.phone = widget.phoneNumber;
+      AppState.partnerData = Map<String, dynamic>.from(widget.partnerData ?? {});
 
       // Dummy validation logic: Accept any 4 digit OTP and navigate
       Navigator.pushReplacement(

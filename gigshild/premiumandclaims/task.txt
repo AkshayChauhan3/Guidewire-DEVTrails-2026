@@ -1,0 +1,215 @@
+Update the backend logic of the GigShield system with the following requirements.
+
+-------------------------------------
+1. PREMIUM COLLECTION LOGIC (WEEKLY)
+-------------------------------------
+
+Modify premium calculation to include:
+- Weekly income
+- Worker category
+- Region
+- Weather risk (ML-based)
+
+Steps:
+
+1. Calculate weekly income:
+weekly_income = sum(last_7_days_income)
+
+2. Calculate total working hours:
+total_hours = sum(last_7_days_hours)
+
+3. Categorize worker:
+if total_hours >= 35:
+    category = "full_time"
+elif total_hours >= 15:
+    category = "part_time"
+elif weekend_hours / total_hours > 0.6:
+    category = "weekend"
+else:
+    category = "casual"
+
+4. Region-based premium:
+REGION_PREMIUM = {
+    "north": 0.068,
+    "east": 0.064,
+    "west": 0.061,
+    "south": 0.065
+}
+
+5. Category multiplier:
+CATEGORY_MULTIPLIER = {
+    "full_time": 1.0,
+    "part_time": 0.8,
+    "weekend": 0.7,
+    "casual": 0.5
+}
+
+6. Fetch weather data using OpenWeather API:
+weather_data = get_weather(lat, lon)
+
+Extract:
+- rainfall
+- temperature
+- humidity
+- wind speed
+
+7. Pass weather data into ML model (XGBoost):
+weather_score = xgboost_model.predict(weather_features)
+# output between 0 and 1
+
+8. Adjust premium based on weather risk:
+weather_multiplier = 1 + (weather_score * 0.5)
+
+9. Final premium:
+premium = weekly_income * REGION_PREMIUM[region] * CATEGORY_MULTIPLIER[category] * weather_multiplier
+
+10. Deduct premium every Monday
+
+
+-------------------------------------
+2. LOCATION-BASED LOGIC
+-------------------------------------
+
+1. Capture GPS:
+lat, lon = get_user_location()
+
+2. Reverse geocode:
+location_data = reverse_geocode(lat, lon)
+
+Store:
+- city
+- area
+- pincode
+
+3. Map city to region:
+if city in NORTH_CITIES:
+    region = "north"
+elif city in SOUTH_CITIES:
+    region = "south"
+elif city in EAST_CITIES:
+    region = "east"
+else:
+    region = "west"
+
+4. Store worker_location for later claim verification
+
+
+-------------------------------------
+3. CLAIM VERIFICATION LOGIC
+-------------------------------------
+
+Use ONLY:
+- Weather API
+- News API
+- Location
+- Activity Drop
+
+Remove any social media logic completely.
+
+-------------------------------------
+
+1. Fetch weather:
+weather_score = xgboost_model.predict(weather_features)
+
+-------------------------------------
+
+2. Fetch news data using News API:
+news_data = fetch_news(city)
+
+Run BERT model:
+news_confidence = bert_model.predict(news_data)
+
+Detect events:
+- flood
+- protest
+- curfew
+- disaster
+
+-------------------------------------
+
+3. Location matching:
+
+distance = haversine(worker_location, event_location)
+
+if distance < 5:
+    location_match = 1
+else:
+    location_match = 0
+
+-------------------------------------
+
+4. Activity drop:
+
+avg_orders = average(last_30_days_orders)
+today_orders = current_day_orders
+
+activity_drop = 1 - (today_orders / avg_orders)
+
+-------------------------------------
+
+5. Final ML score:
+
+final_score = (
+    0.40 * weather_score +
+    0.30 * news_confidence +
+    0.20 * location_match +
+    0.10 * activity_drop
+)
+
+-------------------------------------
+
+6. Decision:
+
+if final_score > 0.7:
+    claim_status = "APPROVED"
+else:
+    claim_status = "REJECTED"
+
+-------------------------------------
+
+7. Fraud check (must pass all):
+
+if not (
+    cell_tower_verified and
+    motion_pattern_valid and
+    notification_match
+):
+    claim_status = "REJECTED_FRAUD"
+
+
+-------------------------------------
+4. PAYOUT LOGIC
+-------------------------------------
+
+1. Average income:
+avg_income = monthly_income / total_hours
+
+2. Crisis index:
+CI = {
+    "mild": 1.0,
+    "moderate": 1.25,
+    "severe": 1.5,
+    "emergency": 2.0
+}
+
+3. Loss hours:
+loss_hours = expected_hours - actual_hours
+
+4. Final payout:
+payout = avg_income * loss_hours * CI[level]
+
+
+-------------------------------------
+IMPORTANT CHANGES:
+-------------------------------------
+
+- REMOVE social media sentiment logic completely
+- INCLUDE activity_drop in ML scoring
+- USE weather + news + location as main signals
+- INCLUDE weather-based multiplier in premium calculation
+- ENSURE all APIs are integrated cleanly
+- KEEP logic modular for FastAPI backend
+
+-------------------------------------
+END OF INSTRUCTIONS
+-------------------------------------

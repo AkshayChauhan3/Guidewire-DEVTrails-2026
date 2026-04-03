@@ -72,13 +72,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ──────────────────────────────────────────────
   Future<void> _verifyUser() async {
     final picker = ImagePicker();
-    final photo = await picker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final photo = await picker.pickImage(source: ImageSource.gallery);
 
     if (photo != null) {
       setState(() => isLoading = true);
-      
+
       final result = await ApiService.verifyUser(
         phone: AppState.phone,
         selfieFile: photo,
@@ -94,7 +92,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Verification complete! You can now make claims."),
+            content: Text(
+              "Verification complete! Automatic protection is now active.",
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -123,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         content: const Text(
-          "You are not verified yet. You are not able to claim until you verify yourself.\n\nPlease take a selfie to verify.",
+          "You are not verified yet. Please complete a selfie check so GigShield can protect your work sessions and auto-review disruptions.",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -136,7 +136,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(context);
               _verifyUser();
             },
-            child: const Text("Verify Now", style: TextStyle(color: Colors.white)),
+            child: const Text(
+              "Verify Now",
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -167,7 +170,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             flex: 3,
             child: Text(
               value?.isNotEmpty == true ? value! : "—",
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -230,7 +237,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
-
                     // ── Profile Header ──
                     Container(
                       width: double.infinity,
@@ -251,7 +257,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ? NetworkImage(partner["profile_image"])
                                 : null,
                             child: partner["profile_image"] == null
-                                ? const Icon(Icons.person, color: Colors.white38, size: 40)
+                                ? const Icon(
+                                    Icons.person,
+                                    color: Colors.white38,
+                                    size: 40,
+                                  )
                                 : null,
                           ),
                           const SizedBox(height: 14),
@@ -265,14 +275,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               "${partner["platform"] ?? "Zomato"} Partner",
-                              style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -289,14 +305,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: Colors.red.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
+                                Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.orangeAccent,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   "Not Verified",
@@ -310,8 +331,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              "You are not verified yet. You will not be able to claim until you verify yourself by taking a selfie.",
-                              style: TextStyle(color: Colors.white70, fontSize: 13),
+                              "You are not verified yet. Verify with a selfie so GigShield can validate your sessions and auto-review emergency support.",
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
@@ -319,11 +343,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: ElevatedButton.icon(
                                 onPressed: _verifyUser,
                                 icon: const Icon(Icons.camera_alt, size: 18),
-                                label: const Text("Verify Now", style: TextStyle(fontWeight: FontWeight.bold)),
+                                label: const Text(
+                                  "Verify Now",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.white,
                                   foregroundColor: Colors.black,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
                             ),
@@ -337,7 +366,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: Colors.green.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: const Row(
                           children: [
@@ -357,49 +388,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // ── Personal Info ──
                     _section("PERSONAL", [
-                      _infoRow("Date of Birth", partner["dob"], icon: Icons.cake_outlined),
-                      _infoRow("Gender", partner["gender"], icon: Icons.person_outline),
+                      _infoRow(
+                        "Date of Birth",
+                        partner["dob"],
+                        icon: Icons.cake_outlined,
+                      ),
+                      _infoRow(
+                        "Gender",
+                        partner["gender"],
+                        icon: Icons.person_outline,
+                      ),
                     ]),
 
                     // ── Contact ──
                     _section("CONTACT", [
-                      _infoRow("Phone", partner["phone"], icon: Icons.phone_outlined),
-                      _infoRow("Email", partner["email"], icon: Icons.email_outlined),
+                      _infoRow(
+                        "Phone",
+                        partner["phone"],
+                        icon: Icons.phone_outlined,
+                      ),
+                      _infoRow(
+                        "Email",
+                        partner["email"],
+                        icon: Icons.email_outlined,
+                      ),
                     ]),
 
                     // ── Location ──
                     _section("LOCATION", [
-                      _infoRow("City", partner["city"], icon: Icons.location_city_outlined),
-                      _infoRow("Area", partner["area"], icon: Icons.map_outlined),
-                      _infoRow("Pincode", partner["pincode"], icon: Icons.pin_drop_outlined),
+                      _infoRow(
+                        "City",
+                        partner["city"],
+                        icon: Icons.location_city_outlined,
+                      ),
+                      _infoRow(
+                        "Area",
+                        partner["area"],
+                        icon: Icons.map_outlined,
+                      ),
+                      _infoRow(
+                        "Pincode",
+                        partner["pincode"],
+                        icon: Icons.pin_drop_outlined,
+                      ),
                     ]),
 
                     // ── Platform ──
                     _section("PLATFORM", [
-                      _infoRow("Platform", partner["platform"], icon: Icons.delivery_dining),
-                      _infoRow("Platform ID", partner["platform_id"], icon: Icons.badge_outlined),
+                      _infoRow(
+                        "Platform",
+                        partner["platform"],
+                        icon: Icons.delivery_dining,
+                      ),
+                      _infoRow(
+                        "Platform ID",
+                        partner["platform_id"],
+                        icon: Icons.badge_outlined,
+                      ),
                     ]),
 
                     // ── Vehicle ──
                     _section("VEHICLE", [
-                      _infoRow("Type", partner["vehicle_type"], icon: Icons.two_wheeler),
-                      _infoRow("Number", partner["vehicle_number"], icon: Icons.pin_outlined),
+                      _infoRow(
+                        "Type",
+                        partner["vehicle_type"],
+                        icon: Icons.two_wheeler,
+                      ),
+                      _infoRow(
+                        "Number",
+                        partner["vehicle_number"],
+                        icon: Icons.pin_outlined,
+                      ),
                     ]),
 
                     // ── Emergency ──
                     _section("EMERGENCY CONTACT", [
-                      _infoRow("Name", partner["emergency_name"], icon: Icons.contact_emergency_outlined),
-                      _infoRow("Phone", partner["emergency_phone"], icon: Icons.phone_callback_outlined),
+                      _infoRow(
+                        "Name",
+                        partner["emergency_name"],
+                        icon: Icons.contact_emergency_outlined,
+                      ),
+                      _infoRow(
+                        "Phone",
+                        partner["emergency_phone"],
+                        icon: Icons.phone_callback_outlined,
+                      ),
                     ]),
 
                     // ── Payment ──
                     _section("PAYMENT", [
-                      _infoRow("UPI ID", partner["upi_id"], icon: Icons.account_balance_wallet_outlined),
+                      _infoRow(
+                        "UPI ID",
+                        partner["upi_id"],
+                        icon: Icons.account_balance_wallet_outlined,
+                      ),
                     ]),
 
                     // ── Device ──
                     _section("DEVICE", [
-                      _infoRow("Device Type", partner["device_type"], icon: Icons.phone_android_outlined),
+                      _infoRow(
+                        "Device Type",
+                        partner["device_type"],
+                        icon: Icons.phone_android_outlined,
+                      ),
                     ]),
 
                     const SizedBox(height: 30),

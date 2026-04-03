@@ -1,24 +1,6 @@
-// ============================================================
-// data_screen.dart
-// ============================================================
-// Shows 4 data cards:
-//   1. Weather  → OpenWeatherMap free API
-//   2. News     → NewsAPI free tier
-//   3. Reddit   → Reddit API (public JSON)
-//   4. Activity → User's session activity drop
-//
-// HOW TO GET FREE API KEYS:
-//   Weather: https://openweathermap.org/api (free tier)
-//   News:    https://newsapi.org (free tier, 100 req/day)
-//   Reddit:  No key needed! Uses public JSON API
-//
-// 🔧 ADD YOUR API KEYS BELOW
-// ============================================================
-
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'app_state.dart';
+import 'data.dart';
 
 class DataScreen extends StatefulWidget {
   const DataScreen({super.key});
@@ -28,143 +10,60 @@ class DataScreen extends StatefulWidget {
 }
 
 class _DataScreenState extends State<DataScreen> {
-
-  // ──────────────────────────────────────────────
-  // 🔧 ADD YOUR API KEYS HERE
-  // ──────────────────────────────────────────────
-  // ignore: constant_identifier_names
-  static const String WEATHER_API_KEY = "YOUR_OPENWEATHERMAP_KEY"; // openweathermap.org
-  // ignore: constant_identifier_names
-  static const String NEWS_API_KEY    = "YOUR_NEWSAPI_KEY";         // newsapi.org
-
-  // ──────────────────────────────────────────────
-  // State for each data card
-  // ──────────────────────────────────────────────
-  Map<String, dynamic>? weatherData;
-  List<dynamic> newsItems = [];
-  List<dynamic> redditPosts = [];
-  bool weatherLoading = true;
-  bool newsLoading = true;
-  bool redditLoading = true;
+  final DataRepository _repository = const DataRepository();
+  CityDataBundle? _cityData;
+  bool _isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _fetchAll();
+    _loadData();
   }
 
-  Future<void> _fetchAll() async {
-    await Future.wait([
-      _fetchWeather(),
-      _fetchNews(),
-      _fetchReddit(),
-    ]);
-  }
-
-  // ──────────────────────────────────────────────
-  // 🌤️ WEATHER
-  // GET https://api.openweathermap.org/data/2.5/weather
-  // Uses user's city from their profile
-  // ──────────────────────────────────────────────
-  Future<void> _fetchWeather() async {
-    final city = AppState.city.isNotEmpty ? AppState.city : "Mumbai";
-
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
-      final response = await http.get(Uri.parse(
-        "https://api.openweathermap.org/data/2.5/weather"
-        "?q=$city&appid=$WEATHER_API_KEY&units=metric"
-      ));
-
-      if (response.statusCode == 200) {
-        setState(() {
-          weatherData = jsonDecode(response.body);
-          weatherLoading = false;
-        });
-      } else {
-        setState(() => weatherLoading = false);
+      final cityData = await _repository.fetchCurrentCityData();
+      if (!mounted) {
+        return;
       }
+      setState(() {
+        _cityData = cityData;
+        _isLoading = false;
+      });
     } catch (e) {
-      setState(() => weatherLoading = false);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _loadError = e.toString().replaceFirst("Exception: ", "");
+        _isLoading = false;
+      });
     }
   }
 
-  // ──────────────────────────────────────────────
-  // 📰 NEWS
-  // GET https://newsapi.org/v2/everything
-  // Searches for news related to user's city
-  // ──────────────────────────────────────────────
-  Future<void> _fetchNews() async {
-    final city = AppState.city.isNotEmpty ? AppState.city : "India";
-
-    try {
-      final response = await http.get(Uri.parse(
-        "https://newsapi.org/v2/everything"
-        "?q=$city+gig+workers+flood+disaster"
-        "&sortBy=publishedAt&pageSize=5"
-        "&apiKey=$NEWS_API_KEY"
-      ));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          newsItems = data["articles"] ?? [];
-          newsLoading = false;
-        });
-      } else {
-        setState(() => newsLoading = false);
-      }
-    } catch (e) {
-      setState(() => newsLoading = false);
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  // 💬 REDDIT
-  // No API key needed! Reddit has a public JSON API
-  // GET https://www.reddit.com/r/india/search.json
-  // ──────────────────────────────────────────────
-  Future<void> _fetchReddit() async {
-    final city = AppState.city.isNotEmpty ? AppState.city : "India";
-
-    try {
-      final response = await http.get(
-        Uri.parse(
-          "https://www.reddit.com/r/india/search.json"
-          "?q=$city+flood+protest+curfew&sort=new&limit=5"
-        ),
-        headers: {"User-Agent": "GigShieldApp/1.0"}, // Reddit requires User-Agent
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final posts = data["data"]["children"] as List;
-        setState(() {
-          redditPosts = posts.map((p) => p["data"]).toList();
-          redditLoading = false;
-        });
-      } else {
-        setState(() => redditLoading = false);
-      }
-    } catch (e) {
-      setState(() => redditLoading = false);
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  // Crisis level from weather
-  // Based on your README's Crisis Index table
-  // ──────────────────────────────────────────────
   Map<String, dynamic> _getCrisisLevel() {
-    if (weatherData == null) return {"label": "Unknown", "color": Colors.grey};
+    final weather = _cityData?.weather;
+    if (weather == null) {
+      return {"label": "Unknown", "color": Colors.grey};
+    }
 
-    final condition = weatherData!["weather"][0]["main"]?.toLowerCase() ?? "";
-    final rain = weatherData!["rain"]?["1h"] ?? 0;
+    final condition = weather.condition.toLowerCase();
+    final temp = weather.tempC ?? 0;
 
-    if (condition.contains("thunderstorm") || rain > 50) {
+    if (condition.contains("thunder") || condition.contains("storm")) {
       return {"label": "EMERGENCY (2×)", "color": Colors.red};
-    } else if (condition.contains("rain") || rain > 10) {
+    } else if (condition.contains("rain") ||
+        condition.contains("flood") ||
+        temp >= 40) {
       return {"label": "SEVERE (1.5×)", "color": Colors.orange};
-    } else if (condition.contains("drizzle") || condition.contains("cloud")) {
+    } else if (condition.contains("drizzle") ||
+        condition.contains("cloud") ||
+        temp >= 34) {
       return {"label": "MODERATE (1.25×)", "color": Colors.yellow};
     }
     return {"label": "MILD (1×)", "color": Colors.green};
@@ -179,204 +78,173 @@ class _DataScreenState extends State<DataScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        title: const Text("Data", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "City Alerts",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white54),
-            onPressed: () {
-              setState(() {
-                weatherLoading = true;
-                newsLoading = true;
-                redditLoading = true;
-              });
-              _fetchAll();
-            },
+            onPressed: _loadData,
           ),
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _fetchAll,
+        onRefresh: _loadData,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-
-            // ──────────────────────────────────
-            // 🌤️ WEATHER CARD
-            // ──────────────────────────────────
-            _sectionLabel("WEATHER · ${AppState.city.isNotEmpty ? AppState.city : 'Your City'}"),
+            _sectionLabel(
+              "LIVE RISK SIGNALS · ${_cityData?.city.isNotEmpty == true ? _cityData!.city : (AppState.city.isNotEmpty ? AppState.city : 'Your City')}",
+            ),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: _cardDecoration(),
-              child: weatherLoading
+              child: _isLoading
                   ? _loadingWidget()
-                  : weatherData == null
-                      ? _errorWidget("Add your OpenWeatherMap API key in data_screen.dart")
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                  : _cityData?.weather == null
+                  ? _errorWidget(
+                      _loadError ??
+                          _cityData?.errors["weather"]?.toString() ??
+                          "Weather data unavailable",
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                // Temperature
-                                Text(
-                                  "${weatherData!["main"]["temp"].toInt()}°C",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 44,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const Spacer(),
-                                // Weather icon code from OpenWeatherMap
-                                Image.network(
-                                  "https://openweathermap.org/img/wn/${weatherData!["weather"][0]["icon"]}@2x.png",
-                                  width: 64,
-                                  errorBuilder: (_, _, _) => const Icon(Icons.cloud, color: Colors.white38, size: 40),
-                                ),
-                              ],
-                            ),
                             Text(
-                              weatherData!["weather"][0]["description"].toString().toUpperCase(),
-                              style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                _weatherChip("Humidity", "${weatherData!["main"]["humidity"]}%"),
-                                const SizedBox(width: 8),
-                                _weatherChip("Wind", "${weatherData!["wind"]["speed"]} m/s"),
-                                const SizedBox(width: 8),
-                                _weatherChip("Feels", "${weatherData!["main"]["feels_like"].toInt()}°C"),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            // Crisis Index indicator
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: (crisis["color"] as Color).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: (crisis["color"] as Color).withValues(alpha: 0.4)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.flash_on, color: crisis["color"] as Color, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    "Crisis Index: ${crisis["label"]}",
-                                    style: TextStyle(color: crisis["color"] as Color, fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                ],
+                              "${(_cityData!.weather!.tempC ?? 0).round()}°C",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 44,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
-                        ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ──────────────────────────────────
-            // 📰 NEWS CARD
-            // ──────────────────────────────────
-            _sectionLabel("NEWS"),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: _cardDecoration(),
-              child: newsLoading
-                  ? _loadingWidget()
-                  : newsItems.isEmpty
-                      ? _errorWidget("Add your NewsAPI key in data_screen.dart")
-                      : Column(
-                          children: newsItems.take(4).map((article) {
-                            return _newsItem(
-                              article["title"] ?? "No title",
-                              article["source"]["name"] ?? "",
-                            );
-                          }).toList(),
-                        ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ──────────────────────────────────
-            // 💬 REDDIT SOCIAL DISTRESS CARD
-            // ──────────────────────────────────
-            _sectionLabel("SOCIAL DISTRESS · REDDIT"),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: _cardDecoration(),
-              child: redditLoading
-                  ? _loadingWidget()
-                  : redditPosts.isEmpty
-                      ? _errorWidget("No Reddit data found for your area")
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Distress score (simplified for demo)
-                            Row(
-                              children: [
-                                const Text("Distress Score", style: TextStyle(color: Colors.white54)),
-                                const Spacer(),
-                                Text(
-                                  redditPosts.length > 3 ? "HIGH" : "LOW",
-                                  style: TextStyle(
-                                    color: redditPosts.length > 3 ? Colors.red : Colors.green,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            const Spacer(),
+                            if (_cityData!.weather!.iconUrl.isNotEmpty)
+                              Image.network(
+                                _cityData!.weather!.iconUrl,
+                                width: 64,
+                                errorBuilder: (_, _, _) => const Icon(
+                                  Icons.cloud,
+                                  color: Colors.white38,
+                                  size: 40,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            ...redditPosts.take(3).map((post) => _redditItem(
-                              post["title"] ?? "",
-                              post["subreddit_name_prefixed"] ?? "",
-                              post["score"]?.toString() ?? "0",
-                            )),
+                              )
+                            else
+                              const Icon(
+                                Icons.cloud,
+                                color: Colors.white38,
+                                size: 40,
+                              ),
                           ],
                         ),
+                        Text(
+                          _cityData!.weather!.condition.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            _weatherChip(
+                              "Humidity",
+                              "${_cityData!.weather!.humidity ?? '--'}%",
+                            ),
+                            const SizedBox(width: 8),
+                            _weatherChip(
+                              "Wind",
+                              "${_cityData!.weather!.windKph?.round() ?? '--'} km/h",
+                            ),
+                            const SizedBox(width: 8),
+                            _weatherChip(
+                              "Feels",
+                              "${(_cityData!.weather!.feelsLikeC ?? 0).round()}°C",
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          "GigShield uses local weather risk to prepare automatic protection for workers on the road.",
+                          style: TextStyle(color: Colors.white60, height: 1.45),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (crisis["color"] as Color).withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: (crisis["color"] as Color).withValues(
+                                alpha: 0.4,
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.flash_on,
+                                color: crisis["color"] as Color,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                "Crisis Index: ${crisis["label"]}",
+                                style: TextStyle(
+                                  color: crisis["color"] as Color,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (_cityData!.weather!.lastUpdated.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            "Updated ${_cityData!.weather!.lastUpdated}",
+                            style: const TextStyle(
+                              color: Colors.white30,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
             ),
 
             const SizedBox(height: 16),
 
-            // ──────────────────────────────────
-            // 📉 ACTIVITY DROP CARD
-            // This will come from Django session data
-            // For now shows demo bars
-            // ──────────────────────────────────
-            _sectionLabel("ACTIVITY DROP"),
+            _sectionLabel("NEWS AND DISRUPTION FEED"),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: _cardDecoration(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Last 7 Days Activity",
-                    style: TextStyle(color: Colors.white54, fontSize: 12),
-                  ),
-                  const SizedBox(height: 20),
-                  // Simple bar chart — replace with fl_chart for production
-                  // 🔗 BACKEND: fetch from GET /api/activity/<phone>/
-                  // Each value = hours worked that day
-                  _activityBars([6.5, 7.2, 5.8, 8.1, 3.2, 0.5, 0.0]),
-                  const SizedBox(height: 12),
-                  // Drop indicator
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
+              child: _isLoading
+                  ? _loadingWidget()
+                  : _cityData == null
+                  ? _errorWidget(_loadError ?? "Unable to load city data")
+                  : _cityData!.news.isEmpty
+                  ? _errorWidget(
+                      _cityData!.errors["news"]?.toString() ??
+                          "No current city news found",
+                    )
+                  : Column(
+                      children: _cityData!.news.take(6).map((article) {
+                        return _newsItem(article);
+                      }).toList(),
                     ),
-                    child: const Text(
-                      "⚠️ Activity dropped 90% in last 2 days",
-                      style: TextStyle(color: Colors.orange, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
             ),
-
             const SizedBox(height: 30),
           ],
         ),
@@ -394,17 +262,29 @@ class _DataScreenState extends State<DataScreen> {
 
   Widget _sectionLabel(String label) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11, letterSpacing: 1.5)),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white38,
+        fontSize: 11,
+        letterSpacing: 1.5,
+      ),
+    ),
   );
 
   Widget _loadingWidget() => const Padding(
     padding: EdgeInsets.all(20),
-    child: Center(child: CircularProgressIndicator(color: Colors.white38, strokeWidth: 2)),
+    child: Center(
+      child: CircularProgressIndicator(color: Colors.white38, strokeWidth: 2),
+    ),
   );
 
   Widget _errorWidget(String msg) => Padding(
     padding: const EdgeInsets.all(10),
-    child: Text(msg, style: const TextStyle(color: Colors.white24, fontSize: 12)),
+    child: Text(
+      msg,
+      style: const TextStyle(color: Colors.white24, fontSize: 12),
+    ),
   );
 
   Widget _weatherChip(String label, String value) => Container(
@@ -413,18 +293,22 @@ class _DataScreenState extends State<DataScreen> {
       color: Colors.white.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(8),
     ),
-    child: Text("$label: $value", style: const TextStyle(color: Colors.white60, fontSize: 11)),
+    child: Text(
+      "$label: $value",
+      style: const TextStyle(color: Colors.white60, fontSize: 11),
+    ),
   );
 
-  Widget _newsItem(String title, String source) => Padding(
+  Widget _newsItem(CityNewsItem article) => Padding(
     padding: const EdgeInsets.only(bottom: 14),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 4, height: 40,
+          width: 4,
+          height: 64,
           decoration: BoxDecoration(
-            color: Colors.white24,
+            color: _severityColor(article.severity),
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -433,69 +317,72 @@ class _DataScreenState extends State<DataScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 13), maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              Text(source, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _redditItem(String title, String sub, String score) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(Icons.arrow_upward, color: Colors.orange, size: 14),
-        const SizedBox(width: 4),
-        Text(score, style: const TextStyle(color: Colors.orange, fontSize: 12)),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 2, overflow: TextOverflow.ellipsis),
-              Text(sub, style: const TextStyle(color: Colors.white38, fontSize: 10)),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-
-  // Simple activity bar chart
-  Widget _activityBars(List<double> hours) {
-    final days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    final maxH = hours.reduce((a, b) => a > b ? a : b);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(hours.length, (i) {
-        final h = hours[i];
-        final isLow = h < 2;
-        return Column(
-          children: [
-            Text(
-              "${h.toStringAsFixed(1)}h",
-              style: TextStyle(color: isLow ? Colors.red : Colors.white38, fontSize: 9),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              width: 32,
-              height: maxH > 0 ? (h / maxH) * 80 + 4 : 4,
-              decoration: BoxDecoration(
-                color: isLow ? Colors.red.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(4),
+              Text(
+                article.title,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(days[i], style: const TextStyle(color: Colors.white38, fontSize: 10)),
-          ],
-        );
-      }),
-    );
+              if (article.description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  article.description,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 6),
+              Text(
+                article.publishedAt.isEmpty
+                    ? article.source
+                    : "${article.source}  •  ${article.publishedAt}",
+                style: const TextStyle(color: Colors.white38, fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _newsTag(
+                    article.eventType.isEmpty ? "alert" : article.eventType,
+                  ),
+                  _newsTag(
+                    article.severity.isEmpty ? "monitor" : article.severity,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _newsTag(String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: Colors.white.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(999),
+    ),
+    child: Text(
+      label.toUpperCase(),
+      style: const TextStyle(color: Colors.white60, fontSize: 10),
+    ),
+  );
+
+  Color _severityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case "emergency":
+        return Colors.redAccent;
+      case "severe":
+        return Colors.orangeAccent;
+      case "moderate":
+        return Colors.amber;
+      default:
+        return Colors.white24;
+    }
   }
 }

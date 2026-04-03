@@ -1,39 +1,13 @@
-// ============================================================
-// home_screen.dart
-// ============================================================
-// Main screen with the big "I'm Working" button.
-//
-// FLOW:
-//   1. User taps "I'm Working"
-//      → App asks for selfie (camera opens)
-//      → App gets current GPS location
-//      → Sends to Django → POST /api/session/start/
-//      → Button turns red → Session running
-//
-//   2. During session (random 1–2 times):
-//      → Timer fires randomly
-//      → Popup appears asking for selfie + location
-//      → Sends to Django → POST /api/session/check/
-//
-//   3. User taps "End Session"
-//      → App asks for selfie again
-//      → Gets final location
-//      → Sends to Django → POST /api/session/end/
-//      → Session saved ✅
-//
-// BACKEND CONNECTIONS (all via ApiService):
-//   startSession()       → POST /api/session/start/
-//   submitRandomCheck()  → POST /api/session/check/
-//   endSession()         → POST /api/session/end/
-// ============================================================
-
 import 'dart:async';
-import 'dart:math';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'api_service.dart';
 import 'app_state.dart';
+
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -43,21 +17,24 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
-  bool isWorking = false;
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  bool isWorking = AppState.isWorking;
+  bool needsHistoryUpload = AppState.needsHistoryUpload;
   bool isLoading = false;
-  Timer? _randomCheckTimer;
-  Duration sessionDuration = Duration.zero;
-  Timer? _clockTimer;
+  bool _randomCheckPending = false;
 
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  Timer? _randomCheckTimer;
+  Timer? _clockTimer;
+  Duration sessionDuration = Duration.zero;
+
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    // Pulse animation for the big button
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -66,6 +43,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    if (AppState.isWorking) {
+      _startClock();
+      _scheduleBackendRandomCheck();
+    }
+
+    _ensurePartnerLoaded();
   }
 
   @override
@@ -76,274 +60,538 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     super.dispose();
   }
 
-  // ──────────────────────────────────────────────
-  // 📍 Get GPS location
-  // Requires geolocator package in pubspec.yaml
-  // Also add permissions in AndroidManifest.xml:
-  //   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-  // ──────────────────────────────────────────────
   Future<Position?> _getLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _showSnack("Please enable location services");
-      return null;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _showSnack("Location permission denied");
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (serviceEnabled) {
+        final permissionGranted = await _ensureLocationPermission();
+        if (permissionGranted) {
+          return await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+            ),
+          );
+        }
+      } else if (!_supportsApproximateLocationFallback) {
+        _showSnack("Please enable location services");
+        return null;
+      }
+    } catch (_) {
+      if (!_supportsApproximateLocationFallback) {
+        _showSnack("Unable to access GPS on this device");
         return null;
       }
     }
 
-    return await Geolocator.getCurrentPosition();
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        return lastKnown;
+      }
+    } catch (_) {}
+
+    if (_supportsApproximateLocationFallback) {
+      final approximate = await _getApproximateLocation();
+      if (approximate != null) {
+        _showSnack("Using approximate laptop location from network");
+        return approximate;
+      }
+    }
+
+    _showSnack("Unable to get location on this device");
+    return null;
   }
 
-  // ──────────────────────────────────────────────
-  // 📸 Open camera for selfie
-  // ──────────────────────────────────────────────
-  Future<String?> _takeSelfie() async {
-    final picker = ImagePicker();
-    final photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front, // Front camera for selfie
+  bool get _supportsApproximateLocationFallback {
+    return kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.linux ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows;
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied) {
+      _showSnack("Location permission denied");
+      return false;
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      _showSnack("Location permission is permanently denied");
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<Position?> _getApproximateLocation() async {
+    final result = await ApiService.getApproximateLocation();
+    if (result["success"] != true) {
+      return null;
+    }
+
+    final latitude = result["latitude"] as double;
+    final longitude = result["longitude"] as double;
+
+    return Position(
+      latitude: latitude,
+      longitude: longitude,
+      timestamp: DateTime.now(),
+      accuracy: 5000,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+      isMocked: true,
     );
-    return photo?.path;
   }
 
-  // ──────────────────────────────────────────────
-  // 🟢 START SESSION
-  // Called when user taps the big button (not working state)
-  // ──────────────────────────────────────────────
+  String _formatLocation(Position position) {
+    final suffix = position.isMocked ? " (approximate network location)" : "";
+    return "${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}$suffix";
+  }
+
+  Future<XFile?> _pickSelfie({
+    required ImageSource source,
+    CameraDevice preferredCameraDevice = CameraDevice.front,
+  }) async {
+    final picker = ImagePicker();
+    return await picker.pickImage(
+      source: source,
+      preferredCameraDevice: preferredCameraDevice,
+      imageQuality: 80,
+    );
+  }
+
+  Future<List<XFile>> _pickHistoryImages() async {
+    final picker = ImagePicker();
+    return await picker.pickMultiImage(imageQuality: 90);
+  }
+
+  Future<void> _ensurePartnerLoaded() async {
+    if (AppState.partnerData["full_name"] != null || AppState.phone.isEmpty) {
+      return;
+    }
+
+    final result = await ApiService.getProfile(AppState.phone);
+    if (!mounted || result["success"] != true) {
+      return;
+    }
+
+    setState(() {
+      AppState.partnerData = Map<String, dynamic>.from(result["partner"] ?? {});
+    });
+  }
+
   Future<void> _startSession() async {
+    if (needsHistoryUpload) {
+      _showSnack(
+        "Upload your delivery history screenshot before starting the next shift",
+      );
+      return;
+    }
+
     setState(() => isLoading = true);
 
-    // Step 1: Take selfie
-    final selfiePath = await _takeSelfie();
-    if (selfiePath == null) {
+    final selfieFile = await _pickSelfie(source: ImageSource.camera);
+    if (selfieFile == null) {
       setState(() => isLoading = false);
       _showSnack("Selfie required to start session");
       return;
     }
 
-    // Step 2: Get location
     final position = await _getLocation();
     if (position == null) {
       setState(() => isLoading = false);
       return;
     }
 
-    // Step 3: Send to Django
-    // 🔗 API CALL → POST /api/session/start/
     final result = await ApiService.startSession(
       phone: AppState.phone,
       latitude: position.latitude,
       longitude: position.longitude,
-      selfiePath: selfiePath,
+      selfieFile: selfieFile,
     );
 
     setState(() => isLoading = false);
 
-    if (result["success"]) {
-      // ✅ Save session ID globally
-      AppState.sessionId = result["session_id"]?.toString() ?? "demo_session";
-      AppState.isWorking = true;
-      AppState.sessionStartTime = DateTime.now();
-
-      setState(() => isWorking = true);
-
-      // Start the session clock
-      _startClock();
-
-      // Schedule random checks (1–2 times during session)
-      _scheduleRandomChecks();
-
-      _showSnack("Session started! Stay safe 🚀");
-    } else {
-      // For demo: start anyway even if backend not ready
-      AppState.isWorking = true;
-      AppState.sessionId = "demo_session_${DateTime.now().millisecondsSinceEpoch}";
-      AppState.sessionStartTime = DateTime.now();
-      setState(() => isWorking = true);
-      _startClock();
-      _scheduleRandomChecks();
-      _showSnack("Session started! (Demo mode)");
+    if (!(result["success"] == true)) {
+      _showSnack(result["message"] ?? "Selfie verification failed");
+      return;
     }
+
+    AppState.sessionId = "${result["session_id"] ?? ""}";
+    AppState.isWorking = true;
+    AppState.sessionStartTime = DateTime.now();
+    AppState.lastSessionLocationLabel = _formatLocation(position);
+    AppState.randomCheckDueAt = _parseBackendDate(result["random_due_at"]);
+
+    setState(() {
+      isWorking = true;
+      sessionDuration = Duration.zero;
+    });
+
+    _startClock();
+    _scheduleBackendRandomCheck();
+
+    final dueTime = AppState.randomCheckDueAt;
+    final dueText = dueTime == null
+        ? ""
+        : " Random selfie may be requested at ${_formatDateTime(dueTime)}.";
+    _showSnack(
+      "Your work session is protected. End the shift here when you are done.$dueText",
+    );
   }
 
-  // ──────────────────────────────────────────────
-  // 🔴 END SESSION
-  // Called when user taps the big button (working state)
-  // ──────────────────────────────────────────────
   Future<void> _endSession() async {
-    // Confirm first
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        title: const Text("End Session?", style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF161B22),
+        title: const Text("End session", style: TextStyle(color: Colors.white)),
         content: const Text(
-          "This will end your work session.\nMake sure you're at your last delivery location.",
-          style: TextStyle(color: Colors.white60),
+          "Demo flow: pick a selfie from gallery to end the session.",
+          style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel", style: TextStyle(color: Colors.white38)),
+            child: const Text("Cancel"),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("End Session", style: TextStyle(color: Colors.redAccent)),
+            child: const Text("Continue"),
           ),
         ],
       ),
     );
 
-    if (confirm != true) return;
-
-    setState(() => isLoading = true);
-
-    // Step 1: Take end selfie
-    final selfiePath = await _takeSelfie();
-    if (selfiePath == null) {
-      setState(() => isLoading = false);
-      _showSnack("Selfie required to end session");
+    if (confirm != true) {
       return;
     }
 
-    // Step 2: Get final location
+    setState(() => isLoading = true);
+
+    final selfieFile = await _pickSelfie(source: ImageSource.gallery);
+    if (selfieFile == null) {
+      setState(() => isLoading = false);
+      _showSnack("Gallery selfie required to end session");
+      return;
+    }
+
     final position = await _getLocation();
     if (position == null) {
       setState(() => isLoading = false);
       return;
     }
 
-    // Step 3: Send to Django
-    // 🔗 API CALL → POST /api/session/end/
-    await ApiService.endSession(
+    final result = await ApiService.endSession(
       sessionId: AppState.sessionId,
       latitude: position.latitude,
       longitude: position.longitude,
-      selfiePath: selfiePath,
+      selfieFile: selfieFile,
     );
 
-    // Cancel all timers
+    setState(() => isLoading = false);
+
+    if (!(result["success"] == true)) {
+      _showSnack(result["message"] ?? "Unable to end session");
+      return;
+    }
+
     _randomCheckTimer?.cancel();
     _clockTimer?.cancel();
 
     AppState.isWorking = false;
+    AppState.completedSessionId = AppState.sessionId;
     AppState.sessionId = "";
+    AppState.sessionStartTime = null;
+    AppState.randomCheckDueAt = null;
+    AppState.lastSessionLocationLabel = _formatLocation(position);
+    AppState.needsHistoryUpload = true;
 
     setState(() {
       isWorking = false;
-      isLoading = false;
+      needsHistoryUpload = true;
       sessionDuration = Duration.zero;
+      _randomCheckPending = false;
     });
 
-    _showSnack("Great work today! Session saved ✅");
+    await _showSessionMetaDialog(
+      title: "Session ended",
+      message:
+          "Selfie verified. Your work session was saved securely.\n\nUpload your delivery history screenshot so GigShield can update earnings and protection data.",
+      position: position,
+      timestamp: DateTime.now(),
+    );
+
+    if (mounted) {
+      await _uploadDeliveryHistory();
+    }
   }
 
-  // ──────────────────────────────────────────────
-  // ⏱️ Session Clock
-  // ──────────────────────────────────────────────
   void _startClock() {
+    _clockTimer?.cancel();
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (AppState.sessionStartTime != null) {
-        setState(() {
-          sessionDuration = DateTime.now().difference(AppState.sessionStartTime!);
-        });
+      final startTime = AppState.sessionStartTime;
+      if (startTime == null || !mounted) {
+        return;
       }
+
+      setState(() {
+        sessionDuration = DateTime.now().difference(startTime);
+      });
     });
   }
 
-  // ──────────────────────────────────────────────
-  // 🎲 Schedule random checks during session
-  // Fires 1–2 random popups during working hours
-  // ──────────────────────────────────────────────
-  void _scheduleRandomChecks() {
-    final random = Random();
-    // Random delay between 10–30 minutes (in seconds)
-    // For demo: use 30–60 seconds so you can test quickly
-    final delaySeconds = random.nextInt(30) + 30; // Change to 600+1800 for production
+  void _scheduleBackendRandomCheck() {
+    _randomCheckTimer?.cancel();
 
-    _randomCheckTimer = Timer(Duration(seconds: delaySeconds), () {
-      if (isWorking && mounted) {
-        _showRandomCheckPopup();
-      }
-    });
+    final dueAt = AppState.randomCheckDueAt;
+    if (!isWorking || dueAt == null) {
+      return;
+    }
+
+    final wait = dueAt.difference(DateTime.now());
+    if (wait.isNegative || wait == Duration.zero) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && isWorking) {
+          _showBackendSelfieNotification();
+        }
+      });
+      return;
+    }
+
+    _randomCheckTimer = Timer(wait, _showBackendSelfieNotification);
   }
 
-  // ──────────────────────────────────────────────
-  // 📸 Random Check Popup
-  // Shows during session at random intervals
-  // ──────────────────────────────────────────────
-  Future<void> _showRandomCheckPopup() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Cannot dismiss — must complete check
-      builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Text("📸 ", style: TextStyle(fontSize: 24)),
-            Text("Quick Check!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+  void _showBackendSelfieNotification() {
+    if (!mounted || !isWorking || _randomCheckPending) {
+      return;
+    }
+
+    _randomCheckPending = true;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentMaterialBanner()
+      ..showMaterialBanner(
+        MaterialBanner(
+          backgroundColor: const Color(0xFF243B2A),
+          content: const Text(
+            "Backend asked for a selfie check. Please verify now.",
+            style: TextStyle(color: Colors.white),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+                _showRandomCheckPopup();
+              },
+              child: const Text("Verify"),
+            ),
           ],
         ),
-        content: const Text(
-          "GigShield needs to verify you're working.\nTake a selfie to continue your session.",
-          style: TextStyle(color: Colors.white60, height: 1.5),
+      );
+
+    _showRandomCheckPopup();
+  }
+
+  Future<void> _showRandomCheckPopup() async {
+    if (!mounted || !isWorking) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF161B22),
+        title: const Text(
+          "Selfie verification required",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          "GigShield requested a live safety check for ${_formatDateTime(DateTime.now())}. "
+          "Take a selfie now to continue your protected session.",
+          style: const TextStyle(color: Colors.white70, height: 1.4),
         ),
         actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context); // Close dialog first
-                await _handleRandomCheck();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text("Take Selfie Now", style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Take selfie"),
+          ),
+        ],
+      ),
+    );
+
+    await _handleRandomCheck();
+  }
+
+  Future<void> _handleRandomCheck() async {
+    final selfieFile = await _pickSelfie(source: ImageSource.camera);
+    if (selfieFile == null) {
+      _randomCheckPending = false;
+      _showSnack("Random check cancelled");
+      return;
+    }
+
+    final position = await _getLocation();
+    if (position == null) {
+      _randomCheckPending = false;
+      return;
+    }
+
+    final result = await ApiService.submitRandomCheck(
+      sessionId: AppState.sessionId,
+      phone: AppState.phone,
+      latitude: position.latitude,
+      longitude: position.longitude,
+      selfieFile: selfieFile,
+    );
+
+    _randomCheckPending = false;
+
+    if (!(result["success"] == true)) {
+      final nextDue = _parseBackendDate(result["random_due_at"]);
+      if (nextDue != null) {
+        AppState.randomCheckDueAt = nextDue;
+        _scheduleBackendRandomCheck();
+      }
+      _showSnack(result["message"] ?? "Random check failed");
+      return;
+    }
+
+    AppState.randomCheckDueAt = null;
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+
+    _showSessionMetaDialog(
+      title: "Verification complete",
+      message:
+          "Selfie verified. Date, time and location recorded for worker safety.",
+      position: position,
+      timestamp: DateTime.now(),
+    );
+  }
+
+  Future<void> _showSessionMetaDialog({
+    required String title,
+    required String message,
+    required Position position,
+    required DateTime timestamp,
+  }) {
+    if (!mounted) {
+      return Future.value();
+    }
+
+    return showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF161B22),
+        title: Text(title, style: const TextStyle(color: Colors.white)),
+        content: Text(
+          "$message\n\nDate and time: ${_formatDateTime(timestamp)}"
+          "\nLocation: ${_formatLocation(position)}",
+          style: const TextStyle(color: Colors.white70, height: 1.45),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
           ),
         ],
       ),
     );
   }
 
-  // ──────────────────────────────────────────────
-  // Handle the actual random check submission
-  // ──────────────────────────────────────────────
-  Future<void> _handleRandomCheck() async {
-    final selfiePath = await _takeSelfie();
-    if (selfiePath == null) return;
+  Future<void> _uploadDeliveryHistory() async {
+    if (!needsHistoryUpload) {
+      return;
+    }
 
-    final position = await _getLocation();
-    if (position == null) return;
+    final historyFiles = await _pickHistoryImages();
+    if (historyFiles.isEmpty) {
+      _showSnack("Select at least one delivery history screenshot");
+      return;
+    }
 
-    // 🔗 API CALL → POST /api/session/check/
-    await ApiService.submitRandomCheck(
-      sessionId: AppState.sessionId,
-      latitude: position.latitude,
-      longitude: position.longitude,
-      selfiePath: selfiePath,
+    setState(() => isLoading = true);
+
+    final now = DateTime.now();
+    final historyDate =
+        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+    // Send directly to backend for OCR processing
+    final result = await ApiService.submitSessionHistory(
+      phone: AppState.phone,
+      date: historyDate,
+      historyFiles: historyFiles,
     );
 
-    if (mounted) _showSnack("Check complete ✅ Keep delivering!");
+    if (!mounted) {
+      return;
+    }
 
-    // Schedule next random check
-    _scheduleRandomChecks();
+    setState(() => isLoading = false);
+
+    if (result["success"] == true) {
+      AppState.needsHistoryUpload = false;
+      setState(() => needsHistoryUpload = false);
+
+      final totalAmount = result["total_earned_amount"] ?? "0.00";
+      final warnings = result["warnings"];
+      final warningCount = warnings is List ? warnings.length : 0;
+
+      _showSnack(
+        "${result["message"] ?? "History uploaded"} Total: Rs $totalAmount"
+        "${warningCount > 0 ? " • $warningCount warning(s)" : ""}",
+      );
+      return;
+    }
+
+    final details = result["details"];
+    String? detailMessage;
+    if (details is List && details.isNotEmpty) {
+      final first = details.first;
+      if (first is Map<String, dynamic>) {
+        detailMessage = first["reason"]?.toString();
+      } else if (first is Map) {
+        detailMessage = first["reason"]?.toString();
+      }
+    } else if (details is String && details.isNotEmpty) {
+      detailMessage = details;
+    }
+
+    _showSnack(
+      detailMessage == null
+          ? result["message"] ?? "Failed to process screenshots"
+          : "${result["message"] ?? "Failed to process screenshots"}: $detailMessage",
+    );
   }
 
-  // ──────────────────────────────────────────────
-  // Format session duration as HH:MM:SS
-  // ──────────────────────────────────────────────
+  DateTime? _parseBackendDate(dynamic raw) {
+    if (raw == null) {
+      return null;
+    }
+
+    return DateTime.tryParse(raw.toString())?.toLocal();
+  }
+
+  String _formatDateTime(DateTime value) {
+    final date =
+        "${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}";
+    final time =
+        "${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}";
+    return "$date $time";
+  }
+
   String get _formattedDuration {
     final h = sessionDuration.inHours.toString().padLeft(2, '0');
     final m = (sessionDuration.inMinutes % 60).toString().padLeft(2, '0');
@@ -352,14 +600,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _showSnack(String msg) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF2A2A2A)),
+      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF1E293B)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = const Color(0xFF1FA35B);
+    final firstName = AppState.fullName.trim().split(RegExp(r"\s+")).first;
+    final canStartWorking = !isWorking && !needsHistoryUpload;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -367,11 +622,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         elevation: 0,
         title: const Text(
           "GigShield",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
         ),
         actions: [
-          // ── Profile Button ──
-          // Tapping opens ProfileScreen (full page)
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -391,83 +648,158 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
         ],
       ),
-
       body: Column(
         children: [
-          // ── Greeting ──
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
             child: Row(
               children: [
-                Text(
-                  "Hey, ${AppState.fullName.split(' ').first} 👋",
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                Expanded(
+                  child: Text(
+                    "Namaste, $firstName",
+                    style: const TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
                 ),
               ],
             ),
           ),
-
-          // ── Session Timer (visible only when working) ──
-          if (isWorking)
+          if (needsHistoryUpload)
             Container(
               margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                color: const Color(0xFF5B3A11).withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.55),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.circle, color: Colors.green, size: 10),
-                      SizedBox(width: 8),
-                      Text("Session Active", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  Text(
-                    _formattedDuration,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'monospace',
-                      fontSize: 18,
+                  const Text(
+                    "Upload delivery history",
+                    style: TextStyle(
+                      color: Color(0xFFFCD34D),
                       fontWeight: FontWeight.bold,
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "Your shift is complete. Upload one or more screenshots from the delivery app so GigShield can refresh your earnings and readiness for the next shift.",
+                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: isLoading ? null : _uploadDeliveryHistory,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFF59E0B),
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text("Upload Screenshot"),
                   ),
                 ],
               ),
             ),
-
-          // ── Big Working Button (CENTER) ──
+          if (isWorking)
+            Container(
+              margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: activeColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: activeColor.withValues(alpha: 0.45)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shield, color: activeColor, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            "Protected shift is live",
+                            style: TextStyle(
+                              color: activeColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        _formattedDuration,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "GigShield is tracking time, location and safety checks while you work.",
+                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  ),
+                  if (AppState.randomCheckDueAt != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      "Next backend selfie check after ${_formatDateTime(AppState.randomCheckDueAt!)}",
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           Expanded(
             child: Center(
               child: isLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : ScaleTransition(
-                      scale: isWorking ? const AlwaysStoppedAnimation(1.0) : _pulseAnimation,
+                      scale: isWorking
+                          ? const AlwaysStoppedAnimation(1.0)
+                          : canStartWorking
+                          ? _pulseAnimation
+                          : const AlwaysStoppedAnimation(1.0),
                       child: GestureDetector(
-                        onTap: isWorking ? _endSession : _startSession,
+                        onTap: isWorking
+                            ? _endSession
+                            : canStartWorking
+                            ? _startSession
+                            : _uploadDeliveryHistory,
                         child: Container(
                           width: 220,
                           height: 220,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: isWorking
-                                ? Colors.red.shade900.withValues(alpha: 0.3)
-                                : Colors.white.withValues(alpha: 0.08),
+                                ? activeColor.withValues(alpha: 0.22)
+                                : canStartWorking
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : Colors.white.withValues(alpha: 0.03),
                             border: Border.all(
-                              color: isWorking ? Colors.redAccent : Colors.white54,
-                              width: 2,
+                              color: isWorking
+                                  ? activeColor
+                                  : canStartWorking
+                                  ? Colors.white54
+                                  : Colors.white24,
+                              width: 2.5,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: isWorking
-                                    ? Colors.red.withValues(alpha: 0.3)
-                                    : Colors.white.withValues(alpha: 0.15),
-                                blurRadius: 40,
-                                spreadRadius: 10,
+                                    ? activeColor.withValues(alpha: 0.35)
+                                    : canStartWorking
+                                    ? Colors.white.withValues(alpha: 0.15)
+                                    : Colors.transparent,
+                                blurRadius: 38,
+                                spreadRadius: 8,
                               ),
                             ],
                           ),
@@ -475,17 +807,33 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                isWorking ? Icons.stop_circle_outlined : Icons.play_circle_outline,
-                                color: isWorking ? Colors.redAccent : Colors.white,
+                                isWorking
+                                    ? Icons.verified_user_outlined
+                                    : canStartWorking
+                                    ? Icons.play_circle_outline
+                                    : Icons.upload_file_outlined,
+                                color: isWorking
+                                    ? activeColor
+                                    : canStartWorking
+                                    ? Colors.white
+                                    : Colors.white54,
                                 size: 60,
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                isWorking ? "End\nSession" : "I'm Working\nNow",
+                                isWorking
+                                    ? "Session\nOn"
+                                    : canStartWorking
+                                    ? "Start\nWorking"
+                                    : "Upload\nHistory",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: isWorking ? Colors.redAccent : Colors.white,
-                                  fontSize: 18,
+                                  color: isWorking
+                                      ? activeColor
+                                      : canStartWorking
+                                      ? Colors.white
+                                      : Colors.white70,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   height: 1.3,
                                 ),
@@ -497,14 +845,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                     ),
             ),
           ),
-
-          // ── Status Text ──
           Padding(
-            padding: const EdgeInsets.only(bottom: 40),
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
             child: Text(
               isWorking
-                  ? "Tap to end your session"
-                  : "Tap to start your work session",
+                  ? "Tap the green button to end the session with a gallery selfie"
+                  : needsHistoryUpload
+                  ? "Upload your latest delivery history screenshots first. Start Working returns after GigShield processes them."
+                  : "Tap to start a verified work session with selfie, location and time protection",
+              textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white38, fontSize: 13),
             ),
           ),

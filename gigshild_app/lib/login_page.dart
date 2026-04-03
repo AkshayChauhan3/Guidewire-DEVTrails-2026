@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'otp_page.dart';
 import 'registor_page.dart';
 
@@ -35,11 +36,16 @@ class _LoginPageState extends State<LoginPage> {
     if (!mounted) return;
 
     if (response.statusCode == 200) {
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
       // ✅ Go to home page
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OTPPage(phoneNumber: _phoneController.text),
+          builder: (context) => OTPPage(
+            phoneNumber: _phoneController.text,
+            partnerData: data["partner"] as Map<String, dynamic>?,
+          ),
         ),
       );
     } else {

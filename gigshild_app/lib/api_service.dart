@@ -16,15 +16,191 @@
 // ============================================================
 
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 class ApiService {
-  // ──────────────────────────────────────────────
-  // 🔧 CHANGE THIS to your Django server address
-  // ──────────────────────────────────────────────
-  // ignore: constant_identifier_names
-  static const String BASE_URL = "http://localhost:8000/api";
+  static const String _configuredBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
+
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) {
+      return _configuredBaseUrl;
+    }
+
+    if (kIsWeb) {
+      return "http://127.0.0.1:8000/api";
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        return "http://10.0.2.2:8000/api";
+      case TargetPlatform.iOS:
+      case TargetPlatform.linux:
+      case TargetPlatform.macOS:
+      case TargetPlatform.windows:
+        return "http://127.0.0.1:8000/api";
+      case TargetPlatform.fuchsia:
+        return "http://127.0.0.1:8000/api";
+    }
+  }
+
+  static Uri _apiUri(String path) => Uri.parse("$baseUrl$path");
+
+  static Map<String, dynamic> _decodeBody(String body) {
+    if (body.isEmpty) {
+      return {};
+    }
+
+    final decoded = jsonDecode(body);
+    return decoded is Map<String, dynamic> ? decoded : {};
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value is String) {
+      return double.tryParse(value);
+    }
+
+    return null;
+  }
+
+  static Future<http.MultipartFile> _multipartImageFromXFile(
+    String fieldName,
+    XFile imageFile,
+  ) async {
+    final bytes = await imageFile.readAsBytes();
+    if (bytes.isEmpty) {
+      throw const FormatException('Selected image is empty');
+    }
+
+    return http.MultipartFile.fromBytes(
+      fieldName,
+      bytes,
+      filename: imageFile.name.isNotEmpty ? imageFile.name : 'selfie.jpg',
+    );
+  }
+
+  static Future<Map<String, dynamic>> getApproximateLocation() async {
+    try {
+      final response = await http.get(Uri.parse("https://ipapi.co/json/"));
+      final data = _decodeBody(response.body);
+      final latitude = _asDouble(data["latitude"]);
+      final longitude = _asDouble(data["longitude"]);
+
+      if (response.statusCode == 200 && latitude != null && longitude != null) {
+        return {
+          "success": true,
+          "latitude": latitude,
+          "longitude": longitude,
+          "source": "network",
+          "city": data["city"],
+          "region": data["region"],
+        };
+      }
+
+      return {"success": false, "message": "Approximate location unavailable."};
+    } catch (_) {
+      return {
+        "success": false,
+        "message": "Approximate location lookup failed.",
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getCityData({
+    required String phone,
+    String? city,
+  }) async {
+    try {
+      final queryParameters = <String, String>{};
+      if (phone.trim().isNotEmpty) {
+        queryParameters["phone"] = phone.trim();
+      }
+      if ((city ?? "").trim().isNotEmpty) {
+        queryParameters["city"] = city!.trim();
+      }
+
+      final response = await http.get(
+        _apiUri("/city-data/").replace(queryParameters: queryParameters),
+      );
+      final data = _decodeBody(response.body);
+
+      if (response.statusCode == 200) {
+        return {"success": true, "data": data};
+      }
+
+      return {
+        "success": false,
+        "message": data["message"] ?? "Unable to fetch city data",
+        "data": data,
+      };
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Connection failed. Backend unreachable at $baseUrl.",
+      };
+    }
+  }
+
+  static Future<Map<String, dynamic>> getPremiumSummary({
+    required String phone,
+    bool collect = false,
+  }) async {
+    try {
+      final response = await http.get(
+        _apiUri("/premium/summary/").replace(
+          queryParameters: {
+            "phone": phone.trim(),
+            "collect": collect.toString(),
+          },
+        ),
+      );
+      final data = _decodeBody(response.body);
+
+      if (response.statusCode == 200) {
+        return {"success": true, "data": data};
+      }
+
+      return {
+        "success": false,
+        "message": data["message"] ?? "Unable to load premium summary",
+      };
+    } catch (_) {
+      return {"success": false, "message": "Connection failed at $baseUrl."};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getClaimsDashboard({
+    required String phone,
+  }) async {
+    try {
+      final response = await http.get(
+        _apiUri(
+          "/claims/dashboard/",
+        ).replace(queryParameters: {"phone": phone.trim()}),
+      );
+      final data = _decodeBody(response.body);
+
+      if (response.statusCode == 200) {
+        return {"success": true, "data": data};
+      }
+
+      return {
+        "success": false,
+        "message": data["message"] ?? "Unable to load claims dashboard",
+      };
+    } catch (_) {
+      return {"success": false, "message": "Connection failed at $baseUrl."};
+    }
+  }
 
   // ──────────────────────────────────────────────
   // 🔐 LOGIN
@@ -34,7 +210,7 @@ class ApiService {
   static Future<Map<String, dynamic>> login(String phone) async {
     try {
       final response = await http.post(
-        Uri.parse("$BASE_URL/login/"),
+        _apiUri("/login/"),
         body: {"phone": phone},
       );
 
@@ -49,7 +225,10 @@ class ApiService {
       }
     } catch (e) {
       // ❌ Network error — Django not running or wrong URL
-      return {"success": false, "message": "Connection failed. Is Django running?"};
+      return {
+        "success": false,
+        "message": "Connection failed. Backend unreachable at $baseUrl.",
+      };
     }
   }
 
@@ -60,9 +239,7 @@ class ApiService {
   // ──────────────────────────────────────────────
   static Future<Map<String, dynamic>> getProfile(String phone) async {
     try {
-      final response = await http.get(
-        Uri.parse("$BASE_URL/profile/$phone/"),
-      );
+      final response = await http.get(_apiUri("/profile/$phone/"));
 
       final data = jsonDecode(response.body);
 
@@ -72,7 +249,7 @@ class ApiService {
         return {"success": false, "message": data["message"]};
       }
     } catch (e) {
-      return {"success": false, "message": "Connection failed."};
+      return {"success": false, "message": "Connection failed at $baseUrl."};
     }
   }
 
@@ -86,10 +263,7 @@ class ApiService {
     required XFile selfieFile,
   }) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse("$BASE_URL/verify-user/"),
-      );
+      var request = http.MultipartRequest('POST', _apiUri("/verify-user/"));
 
       request.fields['phone'] = phone;
 
@@ -110,13 +284,19 @@ class ApiService {
         if (data["match"] == true) {
           return {"success": true, "message": "Verification Successful"};
         } else {
-          return {"success": false, "message": "Face did not match. Please try again."};
+          return {
+            "success": false,
+            "message": "Face did not match. Please try again.",
+          };
         }
       } else {
-        return {"success": false, "message": data["error"] ?? "Verification failed"};
+        return {
+          "success": false,
+          "message": data["error"] ?? "Verification failed",
+        };
       }
     } catch (e) {
-      return {"success": false, "message": "Connection failed."};
+      return {"success": false, "message": "Connection failed at $baseUrl."};
     }
   }
 
@@ -133,13 +313,10 @@ class ApiService {
     required String phone,
     required double latitude,
     required double longitude,
-    required String selfiePath,
+    required XFile selfieFile,
   }) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse("$BASE_URL/session/start/"),
-      );
+      var request = http.MultipartRequest('POST', _apiUri("/session/start/"));
 
       // Send location + phone
       request.fields.addAll({
@@ -150,21 +327,30 @@ class ApiService {
 
       // Send selfie image
       request.files.add(
-        await http.MultipartFile.fromPath('selfie', selfiePath),
+        await _multipartImageFromXFile('selfie_image', selfieFile),
       );
 
       var response = await request.send();
       final body = await response.stream.bytesToString();
-      final data = jsonDecode(body);
+      final data = _decodeBody(body);
 
       if (response.statusCode == 201) {
-        // Returns session_id — save this to end the session later
-        return {"success": true, "session_id": data["session_id"]};
+        return {
+          "success": true,
+          "session_id": data["session_id"],
+          "message": data["message"],
+          "random_due_at": data["random_due_at"],
+          "random_hours": data["random_hours"],
+        };
       } else {
-        return {"success": false, "message": data["message"]};
+        return {
+          "success": false,
+          "message": data["message"] ?? "Unable to start session",
+          "details": data["details"],
+        };
       }
     } catch (e) {
-      return {"success": false, "message": "Connection failed."};
+      return {"success": false, "message": "Connection failed at $baseUrl."};
     }
   }
 
@@ -180,13 +366,10 @@ class ApiService {
     required String sessionId,
     required double latitude,
     required double longitude,
-    required String selfiePath,
+    required XFile selfieFile,
   }) async {
     try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse("$BASE_URL/session/end/"),
-      );
+      var request = http.MultipartRequest('POST', _apiUri("/session/stop/"));
 
       request.fields.addAll({
         "session_id": sessionId,
@@ -195,20 +378,30 @@ class ApiService {
       });
 
       request.files.add(
-        await http.MultipartFile.fromPath('selfie', selfiePath),
+        await _multipartImageFromXFile('selfie_image', selfieFile),
       );
 
       var response = await request.send();
       final body = await response.stream.bytesToString();
-      final data = jsonDecode(body);
+      final data = _decodeBody(body);
 
       if (response.statusCode == 200) {
-        return {"success": true};
+        return {
+          "success": true,
+          "message": data["message"],
+          "session_id": data["session_id"],
+          "end_time": data["end_time"],
+          "is_complete": data["is_complete"],
+        };
       } else {
-        return {"success": false, "message": data["message"]};
+        return {
+          "success": false,
+          "message": data["message"] ?? "Unable to end session",
+          "details": data["details"],
+        };
       }
     } catch (e) {
-      return {"success": false, "message": "Connection failed."};
+      return {"success": false, "message": "Connection failed at $baseUrl."};
     }
   }
 
@@ -223,111 +416,158 @@ class ApiService {
   // ──────────────────────────────────────────────
   static Future<Map<String, dynamic>> submitRandomCheck({
     required String sessionId,
+    required String phone,
     required double latitude,
     required double longitude,
-    required String selfiePath,
+    required XFile selfieFile,
   }) async {
     try {
       var request = http.MultipartRequest(
         'POST',
-        Uri.parse("$BASE_URL/session/check/"),
+        _apiUri("/session/random-check/"),
       );
 
       request.fields.addAll({
         "session_id": sessionId,
+        "phone": phone,
         "latitude": latitude.toString(),
         "longitude": longitude.toString(),
       });
 
       request.files.add(
-        await http.MultipartFile.fromPath('selfie', selfiePath),
+        await _multipartImageFromXFile('selfie_image', selfieFile),
       );
 
       var response = await request.send();
+      final body = await response.stream.bytesToString();
+      final data = _decodeBody(body);
 
       if (response.statusCode == 200) {
-        return {"success": true};
-      } else {
-        return {"success": false};
-      }
-    } catch (e) {
-      return {"success": false};
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  // 📋 GET CLAIMS
-  // Fetch past claims for the user
-  // Django endpoint: GET /api/claims/<phone>/
-  //
-  // BACKEND SETUP NEEDED:
-  // Claim model: partner, date, type, status, payout_amount
-  // ──────────────────────────────────────────────
-  static Future<Map<String, dynamic>> getClaims(String phone) async {
-    try {
-      final response = await http.get(
-        Uri.parse("$BASE_URL/claims/$phone/"),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        return {"success": true, "claims": data["claims"]};
-      } else {
-        return {"success": false, "claims": []};
-      }
-    } catch (e) {
-      return {"success": false, "claims": []};
-    }
-  }
-
-  // ──────────────────────────────────────────────
-  // 💰 GET PREMIUM
-  // Fetch calculated premium for user
-  // Django endpoint: GET /api/premium/<phone>/
-  //
-  // FOR HACKATHON DEMO:
-  // You can hardcode ₹5000 in Django view for now
-  // ──────────────────────────────────────────────
-  static Future<Map<String, dynamic>> getPremium(String phone) async {
-    try {
-      final response = await http.get(
-        Uri.parse("$BASE_URL/premium/$phone/"),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        return {"success": true, "premium": data["premium"]};
-      } else {
-        // Fallback for demo if endpoint not ready
         return {
           "success": true,
-          "premium": {
-            "base": 4200,
-            "regional": 305,
-            "crisis_buffer": 495,
-            "total": 5000,
-            "worker_type": "Full-time",
-            "region": "West",
-            "crisis_level": "Mild",
-          }
+          "message": data["message"],
+          "session_id": data["session_id"],
+          "random_time": data["random_time"],
+        };
+      } else {
+        return {
+          "success": false,
+          "message": data["message"] ?? "Unable to verify random check",
+          "random_due_at": data["random_due_at"],
+          "details": data["details"],
         };
       }
     } catch (e) {
-      // ✅ Hardcoded fallback for hackathon demo
+      return {"success": false, "message": "Connection failed at $baseUrl."};
+    }
+  }
+
+  static Future<Map<String, dynamic>> submitSessionHistory({
+    required String phone,
+    required String date,
+    List<XFile> historyFiles = const [],
+  }) async {
+    try {
+      if (historyFiles.isEmpty) {
+        return {
+          "success": false,
+          "message": "Upload at least one delivery history screenshot",
+        };
+      }
+
+      final request = http.MultipartRequest(
+        'POST',
+        _apiUri("/session/history/"),
+      );
+
+      request.fields.addAll({
+        "phone": phone,
+        "date": date,
+        "ocr_source": "server", // Backend will do OCR and extract amounts
+      });
+
+      for (final historyFile in historyFiles) {
+        request.files.add(
+          await _multipartImageFromXFile('images', historyFile),
+        );
+      }
+
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
+      final data = _decodeBody(body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return {
+          "success": true,
+          "message": data["message"] ?? "History uploaded ✅",
+          "total_earned_amount": data["total_earned_amount"],
+          "extracted_amounts": data["extracted_amounts"],
+          "warnings": data["warnings"],
+        };
+      }
+
       return {
-        "success": true,
-        "premium": {
-          "base": 4200,
-          "regional": 305,
-          "crisis_buffer": 495,
-          "total": 5000,
-          "worker_type": "Full-time",
-          "region": "West",
-          "crisis_level": "Mild",
-        }
+        "success": false,
+        "message": data["message"] ?? "Unable to upload history",
+        "details": data["details"],
+        "warnings": data["warnings"],
       };
+    } on FormatException catch (e) {
+      return {"success": false, "message": e.message};
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Connection failed at $baseUrl.",
+        "details": e.toString(),
+      };
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 📰 CREATE DEMO EVENT
+  // Publishes a fake news event for testing claims
+  // Django endpoint: POST /api/demo-events/
+  // ──────────────────────────────────────────────
+  static Future<Map<String, dynamic>> createDemoEvent({
+    required String phone,
+    required String city,
+    required String area,
+    required String eventType,
+    required String severity,
+    required String headline,
+    required String summary,
+  }) async {
+    try {
+      final response = await http.post(
+        _apiUri("/demo-events/"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "phone": phone.trim(),
+          "city": city,
+          "area": area,
+          "event_type": eventType,
+          "severity": severity,
+          "headline": headline,
+          "summary": summary,
+          "source": "flutter-app",
+        }),
+      );
+      final data = _decodeBody(response.body);
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return {
+          "success": true,
+          "message": "Demo event created successfully",
+          "event_id": data["event_id"],
+        };
+      }
+
+      return {
+        "success": false,
+        "message": data["message"] ?? "Unable to create demo event",
+      };
+    } catch (e) {
+      return {"success": false, "message": "Connection failed at $baseUrl."};
     }
   }
 }

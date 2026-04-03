@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.permissions import AllowAny
 from .serializers import DeliveryPartnerSerializer, LoginSerializer
 from .models import DeliveryPartner
+from premiumandclaims.services import ensure_premium_account
 
 
 class RegisterView(APIView):
@@ -18,10 +19,16 @@ class RegisterView(APIView):
         )
 
         if serializer.is_valid():
-            serializer.save()
+            partner = serializer.save()
+            account = ensure_premium_account(partner)
             return Response({
                 "message": "Registered successfully 🚀",
-                "partner": serializer.data
+                "partner": {
+                    **serializer.data,
+                    "wallet_balance": float(account.wallet_balance),
+                    "testing_bonus": float(account.testing_bonus),
+                    "region": account.region,
+                }
             }, status=status.HTTP_201_CREATED)
 
         # If invalid, return what went wrong
@@ -47,6 +54,7 @@ class LoginView(APIView):
                     "message": "No account found with this phone number ❌"
                 }, status=status.HTTP_404_NOT_FOUND)
 
+            account = ensure_premium_account(partner)
             # Phone found → Login success
             return Response({
                 "message": "Login successful 🚀",
@@ -57,6 +65,9 @@ class LoginView(APIView):
                     "email":     partner.email,
                     "city":      partner.city,
                     "platform":  partner.platform,
+                    "wallet_balance": float(account.wallet_balance),
+                    "testing_bonus": float(account.testing_bonus),
+                    "region": account.region,
                 }
             }, status=status.HTTP_200_OK)
 
@@ -74,6 +85,7 @@ class ProfileView(APIView):
                 "message": "User not found ❌"
             }, status=status.HTTP_404_NOT_FOUND)
 
+        account = ensure_premium_account(partner)
         return Response({
             "message": "User data fetched ✅",
             "partner": {
@@ -96,6 +108,9 @@ class ProfileView(APIView):
                 "vehicle_number":  partner.vehicle_number,
                 "profile_image":   request.build_absolute_uri(partner.profile_image.url) if partner.profile_image else None,
                 "is_verified":     partner.is_verified,
+                "wallet_balance":  float(account.wallet_balance),
+                "testing_bonus":   float(account.testing_bonus),
+                "region":          account.region,
             }
         }, status=status.HTTP_200_OK)
 

@@ -2,7 +2,7 @@
 // main_navigation.dart
 // ============================================================
 // Bottom navigation bar connecting all 4 screens:
-//   Home | Premium | Data | Claims
+//   Home | Premium | Alerts | Protection
 //
 // This is shown AFTER login.
 // The HomeScreen handles its own AppBar with profile icon.
@@ -45,7 +45,9 @@ class _MainNavigationState extends State<MainNavigation> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: const Color(0xFF0D0D0D),
-          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+          border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
@@ -55,7 +57,10 @@ class _MainNavigationState extends State<MainNavigation> {
           type: BottomNavigationBarType.fixed,
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.white30,
-          selectedLabelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          selectedLabelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
           unselectedLabelStyle: const TextStyle(fontSize: 11),
           items: const [
             BottomNavigationBarItem(
@@ -71,12 +76,12 @@ class _MainNavigationState extends State<MainNavigation> {
             BottomNavigationBarItem(
               icon: Icon(Icons.bar_chart_outlined),
               activeIcon: Icon(Icons.bar_chart),
-              label: "Data",
+              label: "Alerts",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long_outlined),
               activeIcon: Icon(Icons.receipt_long),
-              label: "Claims",
+              label: "Protect",
             ),
           ],
         ),

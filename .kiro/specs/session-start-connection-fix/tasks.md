@@ -1,0 +1,105 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Session Start Endpoint Reachability
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Test the concrete failing case - POST to `/api/session/start/` with multipart form data
+  - Test that POST to `http://127.0.0.1:8000/api/session/start/` with valid multipart data (phone, latitude, longitude, selfie_image) successfully establishes a connection and reaches the Django view
+  - The test assertions should verify: connection is established, response status is one of [200, 201, 400, 401, 404] (not connection error)
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS with connection error or 404 (this is correct - it proves the bug exists)
+  - Document counterexamples found: exact error message, whether request reaches Django logs, URL pattern registration status
+  - Use curl, Postman, or Python requests library to test the endpoint directly
+  - Check Django logs to see if request arrives at the view
+  - Run `python manage.py show_urls` or inspect URL patterns to verify route registration
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Existing Endpoint Behavior
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (endpoints other than `/api/session/start/`)
+  - Test `/api/login/` endpoint: POST with phone number returns 200 OK with partner data
+  - Test `/api/profile/<phone>/` endpoint: GET returns 200 OK with partner data
+  - Test `/api/verify-user/` endpoint: POST with phone and selfie returns verification result
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3_
+
+- [ ] 3. Fix for session start connection issue
+
+  - [ ] 3.1 Investigate and verify root cause
+    - Check URL pattern registration: verify `/api/session/start/` is registered in Django's URL resolver
+    - Run `python manage.py show_urls` or use Django shell to inspect `urlpatterns`
+    - Verify `sessions.urls` is properly included in main `urls.py`
+    - Check app registration: confirm `'sessions.apps.SessionsConfig'` in INSTALLED_APPS is correct
+    - Verify `sessions/apps.py` exists and defines `SessionsConfig` correctly
+    - Check CORS configuration: verify `corsheaders` middleware is at the top of MIDDLEWARE list
+    - Test CORS preflight: send OPTIONS request to `/api/session/start/` and verify CORS headers
+    - Check for URL pattern conflicts: ensure no catch-all patterns in `registor_and_login.urls` intercept session requests
+    - Document findings: identify which of the hypothesized root causes is the actual issue
+    - _Bug_Condition: isBugCondition(input) where input.method == "POST" AND input.url == "/api/session/start/" AND input.contentType == "multipart/form-data"_
+    - _Expected_Behavior: Connection established, request reaches StartSessionView, returns status in [200, 201, 400, 401] not connection error_
+    - _Preservation: Login, profile, and verify-user endpoints continue to work unchanged_
+    - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+  - [ ] 3.2 Implement the fix based on root cause analysis
+    - If URL routing issue: Fix URL pattern registration in `gigshild/gigshild/urls.py` or `gigshild/sessions/urls.py`
+    - If app registration issue: Correct INSTALLED_APPS configuration in `gigshild/gigshild/settings.py`
+    - If CORS issue: Add missing CORS settings (CORS_ALLOW_CREDENTIALS, CORS_ALLOW_METHODS, CORS_ALLOW_HEADERS)
+    - If trailing slash issue: Add `APPEND_SLASH = True` to settings.py
+    - If middleware ordering issue: Adjust middleware order to ensure CORS processes requests before CSRF
+    - Add request logging to StartSessionView to confirm requests reach the view
+    - Verify permission_classes = [AllowAny] is set correctly
+    - Test the fix: Use curl or Postman to POST to `/api/session/start/` and verify connection succeeds
+    - _Bug_Condition: isBugCondition(input) from design_
+    - _Expected_Behavior: expectedBehavior(result) from design - connection established, proper HTTP status returned_
+    - _Preservation: Preservation Requirements from design - existing endpoints unchanged_
+    - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.2, 3.3_
+
+  - [ ] 3.3 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Session Start Endpoint Reachability
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied
+    - Run bug condition exploration test from step 1
+    - POST to `http://127.0.0.1:8000/api/session/start/` with valid multipart data
+    - Verify connection is established and response status is in [200, 201, 400, 401, 404]
+    - Check Django logs to confirm request reaches StartSessionView
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2_
+
+  - [ ] 3.4 Verify preservation tests still pass
+    - **Property 2: Preservation** - Existing Endpoint Behavior
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - Test `/api/login/` endpoint still works correctly
+    - Test `/api/profile/<phone>/` endpoint still works correctly
+    - Test `/api/verify-user/` endpoint still works correctly
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3_
+
+  - [ ] 3.5 Test with Flutter app
+    - Run the Flutter app on the target platform (Linux desktop or Android emulator)
+    - Attempt to start a work session by clicking "I'm Working" button
+    - Take a selfie and provide location when prompted
+    - Verify the app successfully connects to `/api/session/start/` and starts the session
+    - Check for any error messages or connection failures
+    - Verify session data is stored correctly in Django backend
+    - Test other session endpoints (`/api/session/stop/`, `/api/session/random-check/`) to ensure they also work
+    - _Requirements: 1.1, 1.2, 2.1, 2.2_
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Verify bug condition test passes (connection to `/api/session/start/` succeeds)
+  - Verify preservation tests pass (existing endpoints still work)
+  - Verify Flutter app can successfully start sessions
+  - Verify Django logs show requests arriving at StartSessionView
+  - Verify CORS headers are present in responses
+  - Ask the user if questions arise or if additional testing is needed
