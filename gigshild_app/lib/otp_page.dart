@@ -47,7 +47,7 @@ class _OTPPageState extends State<OTPPage> {
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a 4-digit OTP')),
+        const SnackBar(content: Text('Please enter any 4-digit Number as OTP')),
       );
     }
   }
