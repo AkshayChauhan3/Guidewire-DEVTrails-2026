@@ -7,7 +7,7 @@
 ## Quick Setup (5 Minutes)
 
 ### Prerequisites
-- **Python 3.11+** and **pip**
+- **Python 3.10** and **pip**
 - **Flutter 3.11+**
 - **Chrome** (for web testing)
 - **Tesseract OCR** (required for earnings extraction)
