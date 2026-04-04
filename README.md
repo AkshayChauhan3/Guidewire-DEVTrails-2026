@@ -263,3 +263,9 @@ GET    /api/premium/wallet/    - Check wallet balance
 - Both use localhost, so they connect seamlessly
 - SQLite database is auto-created on first run
 - Use **any 10-digit phone number** for registration and testing
+
+---
+
+## 🎥 Demo Video
+
+Watch the execution video on YouTube: [https://www.youtube.com/watch?v=WbCT-Czzg40]
