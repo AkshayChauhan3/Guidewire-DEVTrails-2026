@@ -244,6 +244,116 @@ gigshild_app/           # Flutter Frontend
 
 ---
 
+## Generate Fake Events (Demo Only)
+
+For testing claim triggers and payout logic without real weather events:
+
+### Open Fake News Generator
+
+```
+Path: gigshild_app/web/fake_news_index.html
+```
+
+**Steps:**
+1. Open the HTML file in your browser while Flutter app is running
+2. Enter your phone number (same as registered in the app)
+3. Select city, area, and event type (flood, strike, protest, curfew, etc.)
+4. Click "Generate Headlines" to create test news stories
+5. Click "Publish to Backend" to activate the fake event
+6. The app will now detect this event and trigger claim eligibility
+
+---
+
+## Backend Logic
+
+### 1. Premium Collection (Weekly)
+
+Calculates personalized insurance premiums every Monday:
+
+**Income Calculation:**
+- `weekly_income` = sum of last 7 days earnings
+
+**Worker Category:**
+- **Full-time:** 35+ working hours/week (1.0x multiplier)
+- **Part-time:** 15-34 hours/week (0.8x multiplier)
+- **Weekend:** 60%+ weekend hours (0.7x multiplier)
+- **Casual:** <15 hours/week (0.5x multiplier)
+
+**Region Premium (Base Rate):**
+- North: 6.8% | East: 6.4% | West: 6.1% | South: 6.5%
+
+**Weather Risk Adjustment:**
+- Fetches real-time weather (rainfall, temperature, humidity, wind)
+- ML model (XGBoost) scores weather risk (0-1)
+- Multiplies premium by `1 + (weather_score × 0.5)`
+
+**Final Premium:**
+```
+premium = weekly_income × region_rate × category_multiplier × weather_multiplier
+```
+
+### 2. Location-Based Tracking
+
+Captures and maps worker location to insurance regions:
+
+- GPS location captured during work sessions
+- Reverse geocoded to city, area, pincode
+- Mapped to region: North/South/East/West
+- Stored for claim verification and fraud detection
+
+### 3. Claim Verification
+
+Approves or rejects insurance claims using multi-factor scoring:
+
+**Data Sources:**
+- **Weather API:** Current conditions at claim location
+- **News API:** Active events (floods, strikes, protests)
+- **Location Matching:** Distance check (< 5km = match)
+- **Activity Drop:** Compare today's orders vs 30-day average
+
+**ML Scoring (Final Decision):**
+```
+final_score = (
+    0.40 × weather_score +          # Weather impact
+    0.30 × news_confidence +        # Event detection
+    0.20 × location_match +         # Location proximity
+    0.10 × activity_drop            # Order volume drop
+)
+```
+
+**Claim Decision:**
+- `score > 0.7` → **APPROVED** ✅
+- `score ≤ 0.7` → **REJECTED** ❌
+
+**Fraud Protection:**
+- Validates cell tower consistency
+- Checks motion patterns
+- Verifies notification timeline
+- Any failure → **REJECTED_FRAUD**
+
+### 4. Payout Calculation
+
+Calculates income loss compensation based on disruption severity:
+
+**Formula:**
+```
+avg_rate = monthly_income / total_hours
+loss_hours = expected_hours - actual_hours
+
+Crisis Levels (Multiplier):
+- Mild: 1.0x
+- Moderate: 1.25x
+- Severe: 1.5x
+- Emergency: 2.0x
+
+payout = avg_rate × loss_hours × crisis_multiplier
+```
+
+Example: If avg rate is ₹200/hour, lost 4 hours during severe crisis:
+`payout = 200 × 4 × 1.5 = ₹1200`
+
+---
+
 ## API Endpoints (Examples)
 
 ```
