@@ -11,7 +11,27 @@
 - **Flutter 3.11+**
 - **Chrome** (for web testing)
 - **Tesseract OCR** (required for earnings extraction)
+- **C/C++ Build Tools** (required for face recognition library)
 - **Git**
+
+### System Dependencies for Face Recognition
+
+Face recognition requires C/C++ compilation tools:
+
+**Linux/Ubuntu:**
+```bash
+sudo apt-get install build-essential cmake
+```
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
+**Windows:**
+1. Download Visual Studio Community: https://visualstudio.microsoft.com/community/
+2. Install with "C++ build tools" workload
+3. Or use MinGW: https://www.mingw-w64.org/
 
 ---
 
@@ -70,7 +90,16 @@ brew install tesseract
 
 ## Setup & Run Frontend
 
-### Step 1: Get Flutter Ready
+### Step 1: Check Flutter Installation
+
+```bash
+# Check Flutter setup and requirements
+flutter doctor
+
+# Install any missing components shown in the output
+```
+
+### Step 2: Get Flutter Ready
 
 ```bash
 # Go to Flutter app folder
@@ -80,7 +109,7 @@ cd ../gigshild_app
 flutter pub get
 ```
 
-### Step 2: Run on Chrome (Web)
+### Step 3: Run on Chrome (Web)
 
 ```bash
 # Run Chrome browser with Flutter

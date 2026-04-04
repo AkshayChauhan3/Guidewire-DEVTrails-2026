@@ -6,6 +6,13 @@ This is the mobile/web frontend for **GigShield**, an insurance protection app f
 
 For complete setup and running instructions, see the **[main README.md](../README.md)** in the project root.
 
+### Check Flutter Setup
+
+```bash
+# Verify Flutter installation and required components
+flutter doctor
+```
+
 ### Fast Start
 
 ```bash

@@ -1,16 +1,4 @@
-// ============================================================
-// profile_screen.dart
-// ============================================================
-// Full-page profile screen opened from the AppBar profile icon.
-// Fetches and displays all registered user data from Django.
-//
-// BACKEND CONNECTION:
-//   ApiService.getProfile(phone) → GET /api/profile/<phone>/
-//
-// DATA SOURCE:
-//   AppState.partnerData → already loaded at login
-//   OR re-fetches from Django if needed
-// ============================================================
+
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';

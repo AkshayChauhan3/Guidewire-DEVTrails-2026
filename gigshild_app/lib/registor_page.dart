@@ -7,10 +7,6 @@ import 'package:http/http.dart' as http;
 import 'login_page.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-// Django Backend Integration Guide
-// To connect this form with your Django backend, simply update the Uri.parse string
-// inside the registerUser() method to point to your Django API endpoint.
-// Make sure your Django backend has a REST API endpoint ready to receive a multipart/form-data POST request.
 
 void main() {
   runApp(const MyApp());

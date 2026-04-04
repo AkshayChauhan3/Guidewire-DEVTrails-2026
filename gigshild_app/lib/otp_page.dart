@@ -89,7 +89,7 @@ class _OTPPageState extends State<OTPPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                'Please enter the 4-digit code sent to\n${widget.phoneNumber}',
+                'Please enter the 4-digit code sent to\n${widget.phoneNumber} (enter any 4 digit)',
                 style: const TextStyle(
                   color: Colors.white54,
                   fontSize: 16,
