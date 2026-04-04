@@ -1,5 +1,3 @@
-Update the backend logic of the GigShield system with the following requirements.
-
 -------------------------------------
 1. PREMIUM COLLECTION LOGIC (WEEKLY)
 -------------------------------------
@@ -199,17 +197,4 @@ loss_hours = expected_hours - actual_hours
 payout = avg_income * loss_hours * CI[level]
 
 
--------------------------------------
-IMPORTANT CHANGES:
--------------------------------------
 
-- REMOVE social media sentiment logic completely
-- INCLUDE activity_drop in ML scoring
-- USE weather + news + location as main signals
-- INCLUDE weather-based multiplier in premium calculation
-- ENSURE all APIs are integrated cleanly
-- KEEP logic modular for FastAPI backend
-
--------------------------------------
-END OF INSTRUCTIONS
--------------------------------------
