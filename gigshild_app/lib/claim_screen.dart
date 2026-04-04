@@ -52,8 +52,8 @@ class _ClaimScreenState extends State<ClaimScreen> {
       // ✅ Remove duplicates by claim ID and sort newest first
       final Map<int, dynamic> claimMap = {};
       for (final claim in allClaims) {
-        final claimMap_item = Map<String, dynamic>.from(claim as Map);
-        final id = claimMap_item["id"] as int?;
+        final claimmapItem = Map<String, dynamic>.from(claim as Map);
+        final id = claimmapItem["id"] as int?;
         if (id != null) {
           claimMap[id] = claim;
         }
