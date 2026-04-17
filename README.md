@@ -1,5 +1,4 @@
 <div align="center">
-  <img src="https://via.placeholder.com/150/000000/FFFFFF?text=GigShield" alt="GigShield Logo" width="150" height="150" />
   <h1>🛡️ GigShield 2.0 </h1>
   <p><b>AI-Powered, Real-Time Protection Architecture for the Modern Gig Workforce</b></p>
   <p><i>Verifying shifts, automating fair premiums, and validating claims through Machine Learning, OCR pipelines, and Multi-Signal Verification.</i></p>
