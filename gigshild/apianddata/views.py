@@ -1,13 +1,16 @@
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils import timezone
 
 from registor_and_login.models import DeliveryPartner
 from premiumandclaims.services import (
     auto_generate_claims_for_partner,
     fetch_news_signals,
     fetch_weather_snapshot,
+    serialize_demo_event,
 )
+from premiumandclaims.models import DemoNewsEvent
 
 
 def _clean_city(raw_city):
@@ -41,6 +44,14 @@ class CityDataView(APIView):
 
         weather = fetch_weather_snapshot(city)
         news = fetch_news_signals(weather.get("city") or city)
+        active_events = [
+            serialize_demo_event(event)
+            for event in DemoNewsEvent.objects.filter(
+                city__iexact=weather.get("city") or city,
+                is_active=True,
+                effective_date__lte=timezone.localdate(),
+            )[:5]
+        ]
 
         return Response(
             {
@@ -70,8 +81,9 @@ class CityDataView(APIView):
                         "event_type": item.get("event_type"),
                         "severity": item.get("severity"),
                     }
-                    for item in news
+                    for item in news if "demo" not in (item.get("source") or "").lower()
                 ],
+                "active_events": active_events,
                 "errors": {},
             }
         )

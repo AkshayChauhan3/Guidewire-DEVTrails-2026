@@ -7,8 +7,9 @@ import 'package:image_picker/image_picker.dart';
 
 import 'api_service.dart';
 import 'app_state.dart';
-
 import 'profile_screen.dart';
+import 'session_history_screen.dart';
+import 'ui_kit.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,7 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   bool isWorking = AppState.isWorking;
-  bool needsHistoryUpload = AppState.needsHistoryUpload;
   bool isLoading = false;
   bool _randomCheckPending = false;
 
@@ -48,8 +48,6 @@ class _HomeScreenState extends State<HomeScreen>
       _startClock();
       _scheduleBackendRandomCheck();
     }
-
-    _ensurePartnerLoaded();
   }
 
   @override
@@ -169,34 +167,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<List<XFile>> _pickHistoryImages() async {
-    final picker = ImagePicker();
-    return await picker.pickMultiImage(imageQuality: 90);
-  }
-
-  Future<void> _ensurePartnerLoaded() async {
-    if (AppState.partnerData["full_name"] != null || AppState.phone.isEmpty) {
-      return;
-    }
-
-    final result = await ApiService.getProfile(AppState.phone);
-    if (!mounted || result["success"] != true) {
-      return;
-    }
-
-    setState(() {
-      AppState.partnerData = Map<String, dynamic>.from(result["partner"] ?? {});
-    });
-  }
-
   Future<void> _startSession() async {
-    if (needsHistoryUpload) {
-      _showSnack(
-        "Upload your delivery history screenshot before starting the next shift",
-      );
-      return;
-    }
-
     setState(() => isLoading = true);
 
     final selfieFile = await _pickSelfie(source: ImageSource.camera);
@@ -241,11 +212,10 @@ class _HomeScreenState extends State<HomeScreen>
     _scheduleBackendRandomCheck();
 
     final dueTime = AppState.randomCheckDueAt;
-    final dueText = dueTime == null
-        ? ""
-        : " Random selfie may be requested at ${_formatDateTime(dueTime)}.";
+    final dueText =
+        dueTime == null ? "" : " Random selfie may be requested at any time during your session.";
     _showSnack(
-      "Your work session is protected. End the shift here when you are done.$dueText",
+      "Your session is on. AI-backed protection stays active while you work. Please click here to end it when done.$dueText",
     );
   }
 
@@ -253,8 +223,11 @@ class _HomeScreenState extends State<HomeScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
-        title: const Text("End session", style: TextStyle(color: Colors.white)),
+        backgroundColor: AppUi.surface,
+        title: const Text(
+          "End session",
+          style: TextStyle(color: Colors.white),
+        ),
         content: const Text(
           "Demo flow: pick a selfie from gallery to end the session.",
           style: TextStyle(color: Colors.white70),
@@ -309,31 +282,32 @@ class _HomeScreenState extends State<HomeScreen>
     _clockTimer?.cancel();
 
     AppState.isWorking = false;
-    AppState.completedSessionId = AppState.sessionId;
     AppState.sessionId = "";
     AppState.sessionStartTime = null;
     AppState.randomCheckDueAt = null;
     AppState.lastSessionLocationLabel = _formatLocation(position);
-    AppState.needsHistoryUpload = true;
 
     setState(() {
       isWorking = false;
-      needsHistoryUpload = true;
       sessionDuration = Duration.zero;
       _randomCheckPending = false;
     });
 
-    await _showSessionMetaDialog(
+    _showSessionMetaDialog(
       title: "Session ended",
-      message:
-          "Selfie verified. Your work session was saved securely.\n\nUpload your delivery history screenshot so GigShield can update earnings and protection data.",
+      message: "Selfie verified. Session data stored on backend.\nPlease upload your session earnings screenshot next.",
       position: position,
       timestamp: DateTime.now(),
+      okText: "Upload Earnings",
+      onOk: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SessionHistoryScreen(phone: AppState.phone),
+          ),
+        );
+      },
     );
-
-    if (mounted) {
-      await _uploadDeliveryHistory();
-    }
   }
 
   void _startClock() {
@@ -410,14 +384,14 @@ class _HomeScreenState extends State<HomeScreen>
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: AppUi.surface,
         title: const Text(
           "Selfie verification required",
           style: TextStyle(color: Colors.white),
         ),
         content: Text(
-          "GigShield requested a live safety check for ${_formatDateTime(DateTime.now())}. "
-          "Take a selfie now to continue your protected session.",
+          "GigShild 2.0 received a random backend check for ${_formatDateTime(DateTime.now())}. "
+          "Take a selfie now to continue your session.",
           style: const TextStyle(color: Colors.white70, height: 1.4),
         ),
         actions: [
@@ -474,27 +448,28 @@ class _HomeScreenState extends State<HomeScreen>
 
     _showSessionMetaDialog(
       title: "Verification complete",
-      message:
-          "Selfie verified. Date, time and location recorded for worker safety.",
+      message: "Selfie verified. Date, time and location recorded.",
       position: position,
       timestamp: DateTime.now(),
     );
   }
 
-  Future<void> _showSessionMetaDialog({
+  void _showSessionMetaDialog({
     required String title,
     required String message,
     required Position position,
     required DateTime timestamp,
+    VoidCallback? onOk,
+    String okText = "OK",
   }) {
     if (!mounted) {
-      return Future.value();
+      return;
     }
 
-    return showDialog<void>(
+    showDialog<void>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: AppUi.surface,
         title: Text(title, style: const TextStyle(color: Colors.white)),
         content: Text(
           "$message\n\nDate and time: ${_formatDateTime(timestamp)}"
@@ -503,76 +478,14 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         actions: [
           FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
+            onPressed: () {
+              Navigator.pop(context);
+              if (onOk != null) onOk();
+            },
+            child: Text(okText),
           ),
         ],
       ),
-    );
-  }
-
-  Future<void> _uploadDeliveryHistory() async {
-    if (!needsHistoryUpload) {
-      return;
-    }
-
-    final historyFiles = await _pickHistoryImages();
-    if (historyFiles.isEmpty) {
-      _showSnack("Select at least one delivery history screenshot");
-      return;
-    }
-
-    setState(() => isLoading = true);
-
-    final now = DateTime.now();
-    final historyDate =
-        "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
-
-    // Send directly to backend for OCR processing
-    final result = await ApiService.submitSessionHistory(
-      phone: AppState.phone,
-      date: historyDate,
-      historyFiles: historyFiles,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() => isLoading = false);
-
-    if (result["success"] == true) {
-      AppState.needsHistoryUpload = false;
-      setState(() => needsHistoryUpload = false);
-
-      final totalAmount = result["total_earned_amount"] ?? "0.00";
-      final warnings = result["warnings"];
-      final warningCount = warnings is List ? warnings.length : 0;
-
-      _showSnack(
-        "${result["message"] ?? "History uploaded"} Total: Rs $totalAmount"
-        "${warningCount > 0 ? " • $warningCount warning(s)" : ""}",
-      );
-      return;
-    }
-
-    final details = result["details"];
-    String? detailMessage;
-    if (details is List && details.isNotEmpty) {
-      final first = details.first;
-      if (first is Map<String, dynamic>) {
-        detailMessage = first["reason"]?.toString();
-      } else if (first is Map) {
-        detailMessage = first["reason"]?.toString();
-      }
-    } else if (details is String && details.isNotEmpty) {
-      detailMessage = details;
-    }
-
-    _showSnack(
-      detailMessage == null
-          ? result["message"] ?? "Failed to process screenshots"
-          : "${result["message"] ?? "Failed to process screenshots"}: $detailMessage",
     );
   }
 
@@ -605,23 +518,24 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: const Color(0xFF1E293B)),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppUi.surfaceSoft,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final activeColor = const Color(0xFF1FA35B);
-    final firstName = AppState.fullName.trim().split(RegExp(r"\s+")).first;
-    final canStartWorking = !isWorking && !needsHistoryUpload;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppUi.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppUi.background,
         elevation: 0,
         title: const Text(
-          "GigShield",
+          AppUi.appName,
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -656,51 +570,13 @@ class _HomeScreenState extends State<HomeScreen>
               children: [
                 Expanded(
                   child: Text(
-                    "Namaste, $firstName",
+                    "Namste! Caption, ${AppState.fullName.split(' ').first}",
                     style: const TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ),
               ],
             ),
           ),
-          if (needsHistoryUpload)
-            Container(
-              margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: const Color(0xFF5B3A11).withValues(alpha: 0.28),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: const Color(0xFFF59E0B).withValues(alpha: 0.55),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Upload delivery history",
-                    style: TextStyle(
-                      color: Color(0xFFFCD34D),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Your shift is complete. Upload one or more screenshots from the delivery app so GigShield can refresh your earnings and readiness for the next shift.",
-                    style: TextStyle(color: Colors.white70, height: 1.4),
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton(
-                    onPressed: isLoading ? null : _uploadDeliveryHistory,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFF59E0B),
-                      foregroundColor: Colors.black,
-                    ),
-                    child: const Text("Upload Screenshot"),
-                  ),
-                ],
-              ),
-            ),
           if (isWorking)
             Container(
               margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
@@ -721,7 +597,7 @@ class _HomeScreenState extends State<HomeScreen>
                           Icon(Icons.shield, color: activeColor, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            "Protected shift is live",
+                            "Your session is on",
                             style: TextStyle(
                               color: activeColor,
                               fontWeight: FontWeight.bold,
@@ -741,17 +617,14 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    "GigShield is tracking time, location and safety checks while you work.",
+                    "Stay safe and please click here to end it.",
                     style: TextStyle(color: Colors.white70, height: 1.4),
                   ),
                   if (AppState.randomCheckDueAt != null) ...[
                     const SizedBox(height: 8),
                     Text(
                       "Next backend selfie check after ${_formatDateTime(AppState.randomCheckDueAt!)}",
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ],
@@ -764,15 +637,9 @@ class _HomeScreenState extends State<HomeScreen>
                   : ScaleTransition(
                       scale: isWorking
                           ? const AlwaysStoppedAnimation(1.0)
-                          : canStartWorking
-                          ? _pulseAnimation
-                          : const AlwaysStoppedAnimation(1.0),
+                          : _pulseAnimation,
                       child: GestureDetector(
-                        onTap: isWorking
-                            ? _endSession
-                            : canStartWorking
-                            ? _startSession
-                            : _uploadDeliveryHistory,
+                        onTap: isWorking ? _endSession : _startSession,
                         child: Container(
                           width: 220,
                           height: 220,
@@ -780,24 +647,16 @@ class _HomeScreenState extends State<HomeScreen>
                             shape: BoxShape.circle,
                             color: isWorking
                                 ? activeColor.withValues(alpha: 0.22)
-                                : canStartWorking
-                                ? Colors.white.withValues(alpha: 0.08)
-                                : Colors.white.withValues(alpha: 0.03),
+                                : Colors.white.withValues(alpha: 0.08),
                             border: Border.all(
-                              color: isWorking
-                                  ? activeColor
-                                  : canStartWorking
-                                  ? Colors.white54
-                                  : Colors.white24,
+                              color: isWorking ? activeColor : Colors.white54,
                               width: 2.5,
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color: isWorking
                                     ? activeColor.withValues(alpha: 0.35)
-                                    : canStartWorking
-                                    ? Colors.white.withValues(alpha: 0.15)
-                                    : Colors.transparent,
+                                    : Colors.white.withValues(alpha: 0.15),
                                 blurRadius: 38,
                                 spreadRadius: 8,
                               ),
@@ -809,30 +668,18 @@ class _HomeScreenState extends State<HomeScreen>
                               Icon(
                                 isWorking
                                     ? Icons.verified_user_outlined
-                                    : canStartWorking
-                                    ? Icons.play_circle_outline
-                                    : Icons.upload_file_outlined,
-                                color: isWorking
-                                    ? activeColor
-                                    : canStartWorking
-                                    ? Colors.white
-                                    : Colors.white54,
+                                    : Icons.play_circle_outline,
+                                color: isWorking ? activeColor : Colors.white,
                                 size: 60,
                               ),
                               const SizedBox(height: 12),
                               Text(
                                 isWorking
                                     ? "Session\nOn"
-                                    : canStartWorking
-                                    ? "Start\nWorking"
-                                    : "Upload\nHistory",
+                                    : "I'm Working\nNow",
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
-                                  color: isWorking
-                                      ? activeColor
-                                      : canStartWorking
-                                      ? Colors.white
-                                      : Colors.white70,
+                                  color: isWorking ? activeColor : Colors.white,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                   height: 1.3,
@@ -850,9 +697,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Text(
               isWorking
                   ? "Tap the green button to end the session with a gallery selfie"
-                  : needsHistoryUpload
-                  ? "Upload your latest delivery history screenshots first. Start Working returns after GigShield processes them."
-                  : "Tap to start a verified work session with selfie, location and time protection",
+                  : "Tap to start a verified work session with selfie, location and time",
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white38, fontSize: 13),
             ),

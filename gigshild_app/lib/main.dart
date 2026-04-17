@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:gigshild_app/login_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:device_preview/device_preview.dart';
+
+import 'login_page.dart';
+import 'ui_kit.dart';
 
 void main() => runApp(
   DevicePreview(
     enabled: !kReleaseMode,
-    builder: (context) => MyApp(), // Wrap your app
+    builder: (context) => const MyApp(),
   ),
 );
 
@@ -14,10 +16,13 @@ void main() => runApp(
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home:  LoginPage());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: AppUi.appName,
+      theme: AppUi.theme(),
+      home: const LoginPage(),
+    );
   }
 }
-

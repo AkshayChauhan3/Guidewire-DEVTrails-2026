@@ -96,12 +96,22 @@ class ApiService {
       final longitude = _asDouble(data["longitude"]);
 
       if (response.statusCode == 200 && latitude != null && longitude != null) {
+        // Enrich with more accurate city name from reverse geocoding
+        String? city = data["city"] as String?;
+        final geoCity = await reverseGeocodeCity(
+          latitude: latitude,
+          longitude: longitude,
+        );
+        if (geoCity != null && geoCity.isNotEmpty) {
+          city = geoCity;
+        }
+
         return {
           "success": true,
           "latitude": latitude,
           "longitude": longitude,
           "source": "network",
-          "city": data["city"],
+          "city": city,
           "region": data["region"],
         };
       }
@@ -112,6 +122,42 @@ class ApiService {
         "success": false,
         "message": "Approximate location lookup failed.",
       };
+    }
+  }
+
+  // ──────────────────────────────────────────────
+  // 🌍 REVERSE GEOCODE
+  // Resolves city name from latitude + longitude
+  // API: https://geocode.maps.co/reverse
+  // ──────────────────────────────────────────────
+  static const String _geocodeApiKey = "68ba83244a2ff811480127gzja3e139";
+
+  static Future<String?> reverseGeocodeCity({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        "https://geocode.maps.co/reverse"
+        "?lat=$latitude&lon=$longitude&api_key=$_geocodeApiKey",
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return null;
+
+      final data = _decodeBody(response.body);
+      final address = data["address"] as Map<String, dynamic>?;
+      if (address == null) return null;
+
+      // Priority: city > town > county > state_district
+      final city =
+          (address["city"] as String?) ??
+          (address["town"] as String?) ??
+          (address["county"] as String?) ??
+          (address["state_district"] as String?);
+
+      return city?.trim().isEmpty == true ? null : city?.trim();
+    } catch (_) {
+      return null; // Fail silently — city is optional
     }
   }
 
@@ -314,15 +360,17 @@ class ApiService {
     required double latitude,
     required double longitude,
     required XFile selfieFile,
+    String? city, // Auto-resolved from reverse geocoding
   }) async {
     try {
       var request = http.MultipartRequest('POST', _apiUri("/session/start/"));
 
-      // Send location + phone
+      // Send location + phone (+ city when available)
       request.fields.addAll({
         "phone": phone,
         "latitude": latitude.toString(),
         "longitude": longitude.toString(),
+        if (city != null && city.isNotEmpty) "city": city,
       });
 
       // Send selfie image
@@ -523,6 +571,30 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> getSessionHistory({
+    required String phone,
+  }) async {
+    try {
+      final response = await http.get(
+        _apiUri(
+          "/session/history/",
+        ).replace(queryParameters: {"phone": phone.trim()}),
+      );
+      final data = _decodeBody(response.body);
+
+      if (response.statusCode == 200) {
+        return {"success": true, "data": data["data"]};
+      }
+
+      return {
+        "success": false,
+        "message": data["message"] ?? "Unable to load session history",
+      };
+    } catch (_) {
+      return {"success": false, "message": "Connection failed at $baseUrl."};
+    }
+  }
+
   // ──────────────────────────────────────────────
   // 📰 CREATE DEMO EVENT
   // Publishes a fake news event for testing claims
@@ -558,7 +630,9 @@ class ApiService {
         return {
           "success": true,
           "message": "Demo event created successfully",
-          "event_id": data["event_id"],
+          "event_id": data["event_id"] ?? data["event"]?["id"],
+          "event": data["event"],
+          "claims_count": data["claims_count"],
         };
       }
 

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GigShield Admin Dashboard</title>
+  <style>
+    :root {
+      --bg: #08111f;
+      --panel: rgba(12, 20, 34, 0.92);
+      --panel-2: rgba(16, 27, 46, 0.96);
+      --line: rgba(145, 170, 210, 0.18);
+      --text: #e8eef9;
+      --muted: #90a0bb;
+      --accent: #75b7ff;
+      --accent-2: #7ef0c6;
+      --warning: #f6c177;
+      --danger: #ff7d7d;
+      --shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at top left, rgba(117, 183, 255, 0.16), transparent 28%),
+        radial-gradient(circle at 85% 15%, rgba(126, 240, 198, 0.10), transparent 26%),
+        linear-gradient(180deg, #050b14 0%, var(--bg) 100%);
+    }
+
+    .shell {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px 56px;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      padding: 28px 28px 22px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: linear-gradient(135deg, rgba(18, 30, 52, 0.95), rgba(8, 17, 31, 0.9));
+      box-shadow: var(--shadow);
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      color: var(--accent-2);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      max-width: 760px;
+      line-height: 1.5;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      min-width: 220px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 6px rgba(126, 240, 198, 0.14);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 22px;
+      min-height: 160px;
+      box-shadow: var(--shadow);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(117, 183, 255, 0.12), transparent 55%);
+      pointer-events: none;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .value {
+      position: relative;
+      z-index: 1;
+      font-size: clamp(30px, 4vw, 46px);
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .hint {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: var(--panel-2);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .mini {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 16px;
+    }
+
+    .mini .mini-label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mini .mini-value {
+      font-size: 22px;
+      font-weight: 750;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      min-height: 52px;
+    }
+
+    .status.error {
+      color: var(--danger);
+      border-color: rgba(255, 125, 125, 0.28);
+      background: rgba(255, 125, 125, 0.08);
+    }
+
+    .footer {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .toolbar {
+        align-items: flex-start;
+      }
+
+      .grid,
+      .stats-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Admin overview</div>
+        <h1>Money flow and claim volume</h1>
+        <p class="subtitle">
+          A single dashboard for the main backend totals: how much premium money was collected from users, how much was credited back to users, and how many claims were generated.
+        </p>
+      </div>
+      <div class="toolbar">
+        <div class="pill"><span class="dot"></span><span id="connectionState">Loading summary...</span></div>
+        <div class="pill">Auto refresh: 10s</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <div class="label">Money collected</div>
+        <div class="value" id="moneyCollected">₹0.00</div>
+        <div class="hint">Total premium debited from all user accounts.</div>
+      </article>
+
+      <article class="card">
+        <div class="label">Money credited</div>
+        <div class="value" id="moneyCredited">₹0.00</div>
+        <div class="hint">Total payout credits paid back to users.</div>
+      </article>
+
+      <article class="card">
+        <div class="label">Claims generated</div>
+        <div class="value" id="claimsGenerated">0</div>
+        <div class="hint">All claim records generated by the backend.</div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Summary breakdown</h2>
+          <div class="meta">Live data from <code>/api/admin/summary/</code></div>
+        </div>
+        <div class="meta" id="updatedAt">Updated just now</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="mini">
+          <div class="mini-label">Net balance</div>
+          <div class="mini-value" id="netBalance">₹0.00</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Approved claims</div>
+          <div class="mini-value" id="approvedClaims">0</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Rejected claims</div>
+          <div class="mini-value" id="rejectedClaims">0</div>
+        </div>
+        <div class="mini">
+          <div class="mini-label">Accounts touched</div>
+          <div class="mini-value" id="accountsTouched">0</div>
+        </div>
+      </div>
+
+      <div class="status" id="statusBox">Waiting for backend data.</div>
+      <div class="footer">Open this file directly in the browser or serve it from Flutter web. It can talk to the Django API as long as the backend is running.</div>
+    </section>
+  </main>
+
+  <script>
+    const API_BASE_URL = window.__GIGSHILD_API_BASE_URL__ || "http://127.0.0.1:8000";
+
+    function formatCurrency(value) {
+      const num = Number(value || 0);
+      return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 2,
+      }).format(num);
+    }
+
+    function setStatus(message, isError = false) {
+      const box = document.getElementById("statusBox");
+      box.textContent = message;
+      box.classList.toggle("error", isError);
+      document.getElementById("connectionState").textContent = isError ? "Offline" : "Live";
+    }
+
+    function renderSummary(payload) {
+      const summary = payload.summary || {};
+      document.getElementById("moneyCollected").textContent = formatCurrency(summary.money_collected);
+      document.getElementById("moneyCredited").textContent = formatCurrency(summary.money_credited);
+      document.getElementById("claimsGenerated").textContent = Number(summary.claims_generated || 0).toLocaleString("en-IN");
+      document.getElementById("netBalance").textContent = formatCurrency(summary.net_balance);
+      document.getElementById("approvedClaims").textContent = Number(summary.claims_by_status?.approved || 0).toLocaleString("en-IN");
+      document.getElementById("rejectedClaims").textContent = Number((summary.claims_by_status?.rejected || 0) + (summary.claims_by_status?.rejected_fraud || 0)).toLocaleString("en-IN");
+      document.getElementById("accountsTouched").textContent = Number(summary.accounts_touched || 0).toLocaleString("en-IN");
+      document.getElementById("updatedAt").textContent = summary.updated_at ? `Updated ${new Date(summary.updated_at).toLocaleString()}` : "Updated just now";
+      setStatus(`Summary loaded successfully. Premium debits and payout credits are current.`);
+    }
+
+    async function loadSummary() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/admin/summary/`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const payload = await res.json();
+        renderSummary(payload);
+      } catch (error) {
+        setStatus(`Unable to load admin summary: ${error.message}`, true);
+      }
+    }
+
+    loadSummary();
+    setInterval(loadSummary, 10000);
+  </script>
+</body>
+</html>

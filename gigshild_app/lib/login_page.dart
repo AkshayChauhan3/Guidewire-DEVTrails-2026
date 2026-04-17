@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'otp_page.dart';
 import 'registor_page.dart';
+import 'ui_kit.dart';
 
 // To connect this with your Django backend, you can use the http package to request OTP.
 // Example:
@@ -65,105 +66,106 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Welcome Back',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Login to continue to GigShield',
-                style: TextStyle(color: Colors.white54, fontSize: 16),
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
-                style: const TextStyle(color: Colors.white, fontSize: 18),
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(10),
-                ],
-                decoration: InputDecoration(
-                  hintText: 'Enter Mobile Number',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  prefixIcon: const Icon(
-                    Icons.phone_android,
-                    color: Colors.white54,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Colors.white70),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 20,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => loginUser(_phoneController),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Continue',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: AppUi.pagePadding,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const SizedBox(height: 12),
                   const Text(
-                    "Don't have an account? ",
-                    style: TextStyle(color: Colors.white54),
+                    AppUi.appName,
+                    style: TextStyle(
+                      color: AppUi.text,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegistrationPage(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Register',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        decoration: TextDecoration.underline,
+                  const SizedBox(height: 10),
+                  const Text(
+                    'The better ML powered system',
+                    style: TextStyle(
+                      color: AppUi.text,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Intelligent premium collection and automatic claim protection for delivery partners.',
+                    style: TextStyle(color: AppUi.muted, fontSize: 15, height: 1.4),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(color: AppUi.text, fontSize: 16),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(10),
+                    ],
+                    decoration: const InputDecoration(
+                      hintText: 'Enter mobile number',
+                      prefixIcon: Icon(Icons.phone_android, color: AppUi.muted),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ElevatedButton(
+                    onPressed: () => loginUser(_phoneController),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppUi.text,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Continue',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Center(
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 4,
+                      children: [
+                        const Text(
+                          "New here?",
+                          style: TextStyle(color: AppUi.muted),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RegistrationPage(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Create account',
+                            style: TextStyle(
+                              color: AppUi.text,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

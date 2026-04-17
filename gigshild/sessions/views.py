@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from registor_and_login.face import compare_faces
 from registor_and_login.models import DeliveryPartner
 from .models import SessionHistory, WorkSession
+from premiumandclaims.services import ensure_premium_account, sync_account_location
 
 try:
     import pytesseract
@@ -282,6 +283,7 @@ class StartSessionView(APIView):
         selfie = _get_selfie_from_request(request)
         latitude = _get_request_value(request, "latitude")
         longitude = _get_request_value(request, "longitude")
+        city = (_get_request_value(request, "city") or "").strip() or None  # optional
 
         if not phone or not selfie or latitude is None or longitude is None:
             return Response(
@@ -322,6 +324,18 @@ class StartSessionView(APIView):
             is_active=True,
             random_due_at=random_due_at,
         )
+
+        # ── Auto-update premium account with location (reverse-geocodes city if absent) ──
+        try:
+            account = ensure_premium_account(partner)
+            sync_account_location(
+                account,
+                city=city,
+                latitude=float(latitude),
+                longitude=float(longitude),
+            )
+        except Exception:
+            pass  # Non-blocking: location sync failure must never break session creation
 
         return Response(
             {
@@ -459,6 +473,32 @@ class StopSessionView(APIView):
 class HistorySessionView(APIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get(self, request):
+        phone = request.GET.get("phone")
+        if not phone:
+            return Response({"message": "phone is required ❌"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            partner = DeliveryPartner.objects.get(phone=phone)
+        except DeliveryPartner.DoesNotExist:
+            return Response({"message": "User not found ❌"}, status=status.HTTP_404_NOT_FOUND)
+
+        histories = SessionHistory.objects.filter(partner=partner).order_by("-history_date")
+        
+        data = []
+        for h in histories:
+            data.append({
+                "id": h.id,
+                "date": h.history_date,
+                "total_earned_amount": str(h.total_earned_amount),
+                "total_working_hours": str(h.total_working_hours),
+                "total_shifts": h.total_shifts,
+                "extracted_amounts": h.extracted_amounts,
+                "raw_text": h.raw_text,
+            })
+            
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
 
     def post(self, request):
         phone = _get_request_value(request, "phone")

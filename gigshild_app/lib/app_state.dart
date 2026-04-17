@@ -12,6 +12,8 @@
 //   AppState.sessionId      → current session ID from Django
 // ============================================================
 
+import 'package:flutter/material.dart';
+
 class AppState {
   // ──────────────────────────────────────────────
   // 👤 Logged-in user info
@@ -30,6 +32,9 @@ class AppState {
   static String? lastSessionLocationLabel;
   static bool needsHistoryUpload = false;
   static String completedSessionId = "";
+  
+  // ── Tab Navigation State ──
+  static ValueNotifier<int> mainTabNotifier = ValueNotifier<int>(0);
 
   // ──────────────────────────────────────────────
   // Helper getters — use these in UI

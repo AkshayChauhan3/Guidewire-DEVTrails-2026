@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import ClaimsDashboardView, DemoEventView, PremiumSummaryView, SubmitClaimView
+from .views import AdminSummaryView, ClaimsDashboardView, DemoEventView, PremiumSummaryView, SubmitClaimView
 
 
 urlpatterns = [
@@ -8,4 +8,5 @@ urlpatterns = [
     path("claims/dashboard/", ClaimsDashboardView.as_view(), name="claims-dashboard"),
     path("claims/submit/", SubmitClaimView.as_view(), name="claims-submit"),
     path("demo-events/", DemoEventView.as_view(), name="demo-events"),
+    path("admin/summary/", AdminSummaryView.as_view(), name="admin-summary"),
 ]

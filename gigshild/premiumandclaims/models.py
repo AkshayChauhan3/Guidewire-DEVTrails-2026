@@ -129,6 +129,7 @@ class ClaimRecord(models.Model):
     crisis_level = models.CharField(max_length=16, choices=CRISIS_LEVEL_CHOICES)
     status = models.CharField(max_length=24, choices=STATUS_CHOICES)
     final_score = models.FloatField(default=0.0)
+    ai_score = models.FloatField(default=0.0)
     weather_score = models.FloatField(default=0.0)
     news_confidence = models.FloatField(default=0.0)
     location_match = models.FloatField(default=0.0)
@@ -150,6 +151,18 @@ class ClaimRecord(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class AdaptiveWeight(models.Model):
+    location_key = models.CharField(max_length=128, unique=True)
+    weather_weight = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.4000"))
+    news_weight = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.3000"))
+    location_weight = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.2000"))
+    activity_weight = models.DecimalField(max_digits=6, decimal_places=4, default=Decimal("0.1000"))
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"AdaptiveWeight<{self.location_key}>"
 
 
 class DemoNewsEvent(models.Model):

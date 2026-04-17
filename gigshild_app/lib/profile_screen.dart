@@ -1,9 +1,9 @@
 
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'api_service.dart';
 import 'app_state.dart';
+import 'ui_kit.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -102,7 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: AppUi.surface,
         title: const Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
@@ -111,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
         content: const Text(
-          "You are not verified yet. Please complete a selfie check so GigShield can protect your work sessions and auto-review disruptions.",
+          "You are not verified yet. Please complete a selfie check so GigShild 2.0 can protect your work sessions and auto-review disruptions.",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -206,15 +206,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppUi.background,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: AppUi.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text("My Profile", style: TextStyle(color: Colors.white)),
+        title: const Text(AppUi.appName, style: TextStyle(color: Colors.white)),
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
@@ -319,7 +319,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 8),
                             const Text(
-                              "You are not verified yet. Verify with a selfie so GigShield can validate your sessions and auto-review emergency support.",
+                                "You are not verified yet. Verify with a selfie so GigShild 2.0 can validate your sessions and auto-review emergency support.",
                               style: TextStyle(
                                 color: Colors.white70,
                                 fontSize: 13,

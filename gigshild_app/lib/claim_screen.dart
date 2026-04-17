@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'api_service.dart';
 import 'app_state.dart';
+import 'ui_kit.dart';
 
 class ClaimScreen extends StatefulWidget {
   const ClaimScreen({super.key});
@@ -12,20 +15,47 @@ class ClaimScreen extends StatefulWidget {
 
 class _ClaimScreenState extends State<ClaimScreen> {
   List<dynamic> _claims = [];
-  List<dynamic> _activeEvents = [];
-  List<dynamic> _newAutoClaims = [];
   bool _isLoading = true;
+  bool _isRefreshing = false;
   String? _error;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadDashboard();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) {
+        if (mounted && AppState.mainTabNotifier.value == 3) {
+          _loadDashboard(silent: true);
+        }
+      },
+    );
+    AppState.mainTabNotifier.addListener(_onTabChanged);
   }
 
-  Future<void> _loadDashboard() async {
+  void _onTabChanged() {
+    if (AppState.mainTabNotifier.value == 3) {
+      // 3 is ClaimScreen
+      _loadDashboard();
+    }
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    AppState.mainTabNotifier.removeListener(_onTabChanged);
+    super.dispose();
+  }
+
+  Future<void> _loadDashboard({bool silent = false}) async {
     setState(() {
-      _isLoading = true;
+      if (silent) {
+        _isRefreshing = true;
+      } else {
+        _isLoading = true;
+      }
       _error = null;
     });
 
@@ -72,22 +102,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
       setState(() {
         _claims = consolidatedClaims;
-        _activeEvents = (data["active_events"] as List?)?.cast<dynamic>() ?? [];
-        _newAutoClaims = autoClaims;
         _isLoading = false;
+        _isRefreshing = false;
       });
-
-      if (autoClaims.isNotEmpty) {
-        final latest = Map<String, dynamic>.from(autoClaims.first as Map);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Protection updated automatically for ${latest["event_type"]} • payout ₹${latest["payout_amount"]}",
-            ),
-            backgroundColor: const Color(0xFF202020),
-          ),
-        );
-      }
       return;
     }
 
@@ -96,6 +113,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
           result["message"]?.toString() ??
           "Unable to load automatic protection";
       _isLoading = false;
+      _isRefreshing = false;
     });
   }
 
@@ -114,146 +132,400 @@ class _ClaimScreenState extends State<ClaimScreen> {
 
   void _showAuditTrail(Map<String, dynamic> claim) {
     final audits = (claim["audit"] as List?)?.cast<dynamic>() ?? const [];
+    final auditMaps = audits
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+    final newsAudit = _findAudit(auditMaps, "News API");
+    final validationAudit = _findAudit(auditMaps, "Real News Validation");
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: AppUi.background,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              "Protection Event #${claim["id"]}",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 18),
+              Text(
+                "Protection Event #${claim["id"]}",
+                style: const TextStyle(
+                  color: AppUi.text,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "${claim["event_type"]} • score ${claim["final_score"]}",
-              style: const TextStyle(color: Colors.white38, fontSize: 12),
-            ),
-            const SizedBox(height: 18),
-            ...audits.map((item) {
-              final audit = Map<String, dynamic>.from(item as Map);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
+              const SizedBox(height: 6),
+              Text(
+                "${claim["event_type"]} • final ${claim["final_score"]} • AI ${claim["ai_score"]}",
+                style: const TextStyle(color: AppUi.muted, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                "The score blends news, weather, location, and activity.",
+                style: TextStyle(color: AppUi.muted, fontSize: 11),
+              ),
+              const SizedBox(height: 12),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final narrow = constraints.maxWidth < 420;
+                  return Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      SizedBox(
+                        width: narrow ? constraints.maxWidth : (constraints.maxWidth - 10) / 2,
+                        child: _miniStat(
+                          label: "AI score",
+                          value: "${claim["ai_score"] ?? ""}",
+                        ),
+                      ),
+                      SizedBox(
+                        width: narrow ? constraints.maxWidth : (constraints.maxWidth - 10) / 2,
+                        child: _miniStat(
+                          label: "Final score",
+                          value: "${claim["final_score"] ?? ""}",
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppUi.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      audit["passed"] == true
-                          ? Icons.check_circle
-                          : Icons.cancel,
-                      color: audit["passed"] == true
-                          ? Colors.green
-                          : Colors.redAccent,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            audit["signal"]?.toString() ?? "",
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          Text(
-                            audit["detail"]?.toString() ?? "",
-                            style: const TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
+                    const Text(
+                      "Validation snapshot",
+                      style: TextStyle(
+                        color: AppUi.text,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      "${audit["score"] ?? ""}",
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _chip(
+                          claim["status"]?.toString() ?? "",
+                          background: _statusColor(
+                            claim["status"]?.toString() ?? "",
+                          ).withValues(alpha: 0.16),
+                          foreground: _statusColor(
+                            claim["status"]?.toString() ?? "",
+                          ),
+                        ),
+                        _chip(
+                          "Weather ${claim["weather_score"] ?? 0}",
+                        ),
+                        _chip(
+                          "News ${claim["news_confidence"] ?? 0}",
+                        ),
+                        _chip(
+                          "Location ${claim["location_match"] ?? 0}",
+                        ),
+                        _chip(
+                          "Activity ${claim["activity_drop"] ?? 0}",
+                        ),
+                      ],
                     ),
+                    if (validationAudit != null) ...[
+                      const SizedBox(height: 12),
+                      _auditSummaryCard(Map<String, dynamic>.from(
+                        validationAudit as Map,
+                      )),
+                    ],
+                    if (newsAudit != null) ...[
+                      const SizedBox(height: 12),
+                      _newsPreviewCard(Map<String, dynamic>.from(newsAudit as Map)),
+                    ],
                   ],
                 ),
-              );
-            }),
-          ],
+              ),
+              const SizedBox(height: 18),
+              ...audits.map((item) {
+                final audit = Map<String, dynamic>.from(item as Map);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Icon(
+                        audit["passed"] == true
+                            ? Icons.check_circle
+                            : Icons.cancel,
+                        color: audit["passed"] == true
+                            ? Colors.green
+                            : Colors.redAccent,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              audit["signal"]?.toString() ?? "",
+                              style: const TextStyle(color: AppUi.text),
+                            ),
+                            Text(
+                              audit["detail"]?.toString() ?? "",
+                              style: const TextStyle(
+                                color: AppUi.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        "${audit["score"] ?? ""}",
+                        style: const TextStyle(color: AppUi.muted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _auditSummaryCard(Map<String, dynamic> audit) {
+    final summary = Map<String, dynamic>.from(
+      audit["validation_summary"] as Map? ?? const {},
+    );
+    final matchedTitle = summary["matched_title"]?.toString();
+    final matchedSource = summary["matched_source"]?.toString();
+    final matchedSimilarity = summary["matched_similarity"];
+    final matchedConfidence = summary["matched_confidence"];
+    final requiresValidation = audit["requires_validation"] == true;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppUi.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            requiresValidation ? "Real news validation" : "Validation context",
+            style: const TextStyle(color: AppUi.text, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            audit["detail"]?.toString() ?? "",
+            style: const TextStyle(color: AppUi.muted, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            "Threshold ${summary["threshold"] ?? audit["threshold"] ?? ""} | Score ${summary["score"] ?? audit["score"] ?? ""}",
+            style: const TextStyle(color: AppUi.muted, fontSize: 12),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            matchedTitle?.isNotEmpty == true
+                ? "Matched article: $matchedTitle"
+                : "Matched article: none",
+            style: const TextStyle(color: AppUi.text, fontSize: 12),
+          ),
+          if (matchedSource?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text(
+              "Source: $matchedSource",
+              style: const TextStyle(color: AppUi.muted, fontSize: 12),
+            ),
+          ],
+          if (matchedSimilarity != null || matchedConfidence != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              "Similarity ${matchedSimilarity ?? "n/a"} | AI confidence ${matchedConfidence ?? "n/a"}",
+              style: const TextStyle(color: AppUi.muted, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic>? _findAudit(
+    List<Map<String, dynamic>> audits,
+    String signal,
+  ) {
+    for (final audit in audits) {
+      if (audit["signal"]?.toString() == signal) {
+        return audit;
+      }
+    }
+    return null;
+  }
+
+  Widget _newsPreviewCard(Map<String, dynamic> audit) {
+    final articles = (audit["articles"] as List?)?.cast<dynamic>() ?? const [];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppUi.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "News API evidence (${articles.length})",
+            style: const TextStyle(color: AppUi.text, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            audit["detail"]?.toString() ?? "",
+            style: const TextStyle(color: AppUi.muted, height: 1.4),
+          ),
+          const SizedBox(height: 10),
+          ...articles.take(3).map((item) {
+            final article = Map<String, dynamic>.from(item as Map);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(top: 5),
+                    decoration: BoxDecoration(
+                      color: AppUi.accent.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          article["title"]?.toString() ?? "",
+                          style: const TextStyle(
+                            color: AppUi.text,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            article["source"]?.toString() ?? "",
+                            article["event_type"]?.toString() ?? "",
+                            "score ${article["confidence"] ?? 0}",
+                          ].where((value) => value.trim().isNotEmpty).join(" • "),
+                          style: const TextStyle(
+                            color: AppUi.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final activeEvent = _activeEvents.isNotEmpty
-        ? Map<String, dynamic>.from(_activeEvents.first as Map)
-        : null;
-
     return Scaffold(
-      backgroundColor: Colors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
         title: const Text(
           "Protection",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppUi.text, fontWeight: FontWeight.w700),
         ),
         automaticallyImplyLeading: false,
         actions: [
+          if (_isRefreshing)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Center(
+                child: SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    color: Colors.white38,
+                    strokeWidth: 2,
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             onPressed: _loadDashboard,
-            icon: const Icon(Icons.refresh, color: Colors.white54),
+            icon: const Icon(Icons.refresh, color: AppUi.muted),
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
+          ? const Center(child: CircularProgressIndicator(color: AppUi.muted))
           : _error != null
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   _error!,
-                  style: const TextStyle(color: Colors.white54),
+                  style: const TextStyle(color: AppUi.muted),
                 ),
               ),
             )
           : ListView(
-              padding: const EdgeInsets.all(20),
+              padding: AppUi.pagePadding,
               children: [
                 Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F2E22),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFF1FA35B)),
-                  ),
+                  decoration: AppUi.panel(borderColor: AppUi.success.withValues(alpha: 0.28)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "AUTOMATIC PROTECTION IS ACTIVE",
+                        "AUTOMATIC PROTECTION",
                         style: TextStyle(
-                          color: Color(0xFF6EE7B7),
+                          color: AppUi.success,
                           fontSize: 11,
                           letterSpacing: 1.5,
                           fontWeight: FontWeight.bold,
@@ -261,78 +533,54 @@ class _ClaimScreenState extends State<ClaimScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        _newAutoClaims.isNotEmpty
-                            ? "GigShield detected a disruption and created support automatically."
-                            : "You do not need to file a claim manually. GigShield monitors city alerts and weather for you.",
+                        "Triggered protection events appear here after automatic review.",
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppUi.text,
                           fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           height: 1.35,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        activeEvent != null
-                            ? activeEvent["headline"]?.toString() ??
-                                  "Live city risk signal detected"
-                            : "If a fake demo event, city alert, or severe weather is detected, payout review starts automatically.",
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          height: 1.45,
-                        ),
+                        "Tap any event to see the validation trail and payout details.",
+                        style: const TextStyle(color: AppUi.muted, height: 1.45),
                       ),
                       const SizedBox(height: 14),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _chip("Weather monitoring"),
-                          _chip("News monitoring"),
-                          _chip("Wallet auto credit"),
+                          _chip("AI classification"),
+                          _chip("Weather"),
+                          _chip("News"),
+                          _chip("Wallet"),
                         ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
-                if (_newAutoClaims.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      "${_newAutoClaims.length} new protection event(s) were created during this refresh.",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
                 Container(
                   padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                  decoration: AppUi.panel(),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.account_balance_wallet_outlined,
-                        color: Colors.white70,
+                        color: AppUi.muted,
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
-                          "Emergency support wallet",
-                          style: TextStyle(color: Colors.white70),
+                          "Wallet balance",
+                          style: TextStyle(color: AppUi.text),
                         ),
                       ),
                       Text(
                         "₹${AppState.partnerData["wallet_balance"] ?? AppState.walletBalance}",
                         style: const TextStyle(
-                          color: Colors.greenAccent,
+                          color: AppUi.success,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -340,25 +588,14 @@ class _ClaimScreenState extends State<ClaimScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
-                  "RECENT PROTECTION EVENTS",
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
+                AppUi.sectionLabel("Recent protection events"),
                 if (_claims.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                    decoration: AppUi.panel(),
                     child: const Text(
-                      "No disruption has been detected for your area yet. Your protection stays on in the background.",
-                      style: TextStyle(color: Colors.white54),
+                      "No active protection event yet. New alerts will appear here automatically.",
+                      style: TextStyle(color: AppUi.muted),
                     ),
                   ),
                 ..._claims.map((item) {
@@ -373,7 +610,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                       margin: const EdgeInsets.only(bottom: 14),
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AppUi.surface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: statusColor.withValues(alpha: 0.25),
@@ -384,16 +621,19 @@ class _ClaimScreenState extends State<ClaimScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                autoCreated
-                                    ? "Auto event #${claim["id"]}"
-                                    : "Claim #${claim["id"]}",
-                                style: const TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
+                              Expanded(
+                                child: Text(
+                                  autoCreated
+                                      ? "Auto event #${claim["id"]}"
+                                      : "Claim #${claim["id"]}",
+                                  style: const TextStyle(
+                                    color: AppUi.muted,
+                                    fontSize: 12,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Spacer(),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
@@ -415,15 +655,26 @@ class _ClaimScreenState extends State<ClaimScreen> {
                             ],
                           ),
                           const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              "AI ${claim["ai_score"] ?? 0}",
+                              style: const TextStyle(
+                                color: AppUi.muted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Text(
                             claim["trigger_title"]?.toString().isNotEmpty ==
                                     true
                                 ? claim["trigger_title"].toString()
                                 : "${claim["event_type"]} • ${claim["city"]}",
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppUi.text,
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -432,7 +683,7 @@ class _ClaimScreenState extends State<ClaimScreen> {
                                 ? "Detected by ${claim["trigger_source"] ?? "system"}"
                                 : "Manual review",
                             style: const TextStyle(
-                              color: Colors.white38,
+                              color: AppUi.muted,
                               fontSize: 12,
                             ),
                           ),
@@ -440,9 +691,9 @@ class _ClaimScreenState extends State<ClaimScreen> {
                           Row(
                             children: [
                               Text(
-                                "Score ${claim["final_score"]}",
+                                "Final ${claim["final_score"]}",
                                 style: const TextStyle(
-                                  color: Colors.white38,
+                                  color: AppUi.muted,
                                   fontSize: 12,
                                 ),
                               ),
@@ -466,16 +717,52 @@ class _ClaimScreenState extends State<ClaimScreen> {
     );
   }
 
-  Widget _chip(String label) {
+  Widget _miniStat({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppUi.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppUi.muted, fontSize: 11),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppUi.text,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(
+    String label, {
+    Color? background,
+    Color? foreground,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: background ?? Colors.white.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(color: Colors.white70, fontSize: 12),
+        style: TextStyle(
+          color: foreground ?? AppUi.text,
+          fontSize: 12,
+        ),
       ),
     );
   }

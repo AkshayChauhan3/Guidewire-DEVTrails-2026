@@ -5,125 +5,371 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GigShield Demo News Generator</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
     :root {
-      --bg: #09111f;
-      --panel: rgba(14, 28, 50, 0.92);
-      --line: rgba(255, 255, 255, 0.1);
-      --text: #eef3ff;
-      --muted: #98a7c2;
-      --accent: #ff7a59;
-      --accent-2: #5cd0c4;
+      --bg: #0d1117;
+      --panel: #161b22;
+      --line: #30363d;
+      --text: #c9d1d9;
+      --text-highlight: #ffffff;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #238636;
+      --success-hover: #2ea043;
+      --danger: #da3633;
     }
 
     * { box-sizing: border-box; }
+    
     body {
       margin: 0;
-      font-family: "Segoe UI", sans-serif;
+      font-family: 'Inter', sans-serif;
       color: var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(92, 208, 196, 0.18), transparent 32%),
-        radial-gradient(circle at top right, rgba(255, 122, 89, 0.15), transparent 28%),
-        linear-gradient(180deg, #07101c, #0d1728 55%, #08111c);
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 50%, rgba(88, 166, 255, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(35, 134, 54, 0.08), transparent 25%);
       min-height: 100vh;
-      padding: 32px 18px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
     }
+
     .wrap {
       max-width: 1100px;
-      margin: 0 auto;
+      width: 100%;
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 380px 1fr;
       gap: 24px;
     }
+
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 24px;
+      border-radius: 12px;
       padding: 24px;
-      backdrop-filter: blur(18px);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
-    h1, h2, p { margin: 0; }
-    h1 { font-size: 34px; line-height: 1; margin-bottom: 12px; }
-    .lead { color: var(--muted); line-height: 1.5; margin-bottom: 22px; }
+
+    h1, h2, h3, p { margin: 0; }
+    
+    h1 { 
+      font-size: 24px; 
+      color: var(--text-highlight);
+      margin-bottom: 8px; 
+      font-weight: 600;
+    }
+    
+    h2 {
+      font-size: 20px;
+      color: var(--text-highlight);
+      margin-bottom: 20px;
+    }
+    
+    .lead { 
+      color: var(--muted); 
+      line-height: 1.5; 
+      margin-bottom: 24px; 
+      font-size: 14px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    
     label {
       display: block;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-    .field { margin-bottom: 16px; }
-    input, select, textarea, button {
-      width: 100%;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+      font-weight: 500;
       color: var(--text);
-      padding: 14px 16px;
-      font-size: 15px;
+      margin-bottom: 6px;
     }
-    textarea { min-height: 96px; resize: vertical; }
-    .btn-row {
+
+    input, select, textarea {
+      width: 100%;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: #0d1117;
+      color: var(--text-highlight);
+      padding: 10px 12px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3);
+    }
+
+    textarea { 
+      min-height: 80px; 
+      resize: vertical; 
+    }
+
+    .location-bar {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 16px;
+    }
+
+    .location-btn {
+      background: #21262d;
+      border: 1px solid var(--line);
+      color: var(--text);
+      white-space: nowrap;
+      height: 40px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    .location-btn:hover {
+      background: #30363d;
+      border-color: #8b949e;
+    }
+
+    .buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 12px;
-      margin-top: 10px;
+      margin-top: 24px;
     }
+
     button {
       cursor: pointer;
-      font-weight: 700;
-      transition: transform 150ms ease, opacity 150ms ease;
+      font-weight: 600;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 14px;
+      transition: all 0.15s ease-in-out;
+      font-family: inherit;
     }
-    button:hover { transform: translateY(-1px); }
+
     .primary {
-      background: linear-gradient(135deg, var(--accent), #ff9b54);
-      color: #111;
-      border: none;
+      background: var(--success);
+      color: white;
+      border: 1px solid rgba(240, 246, 252, 0.1);
     }
+    .primary:hover { background: var(--success-hover); }
+    .primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
     .secondary {
-      background: linear-gradient(135deg, var(--accent-2), #78e0d0);
-      color: #041019;
-      border: none;
+      background: #21262d;
+      color: var(--text);
+      border: 1px solid var(--line);
     }
-    .news-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 16px;
+    .secondary:hover { background: #30363d; border-color: #8b949e; }
+
+    .status-box {
+      margin-top: 20px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+      background: rgba(88, 166, 255, 0.1);
+      border: 1px solid rgba(88, 166, 255, 0.2);
+      color: var(--accent);
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+
+    .alerts-section {
       margin-top: 18px;
     }
+
+    .alerts-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .alerts-header p {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .alert-list {
+      display: grid;
+      gap: 10px;
+      max-height: 280px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .alert-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #0d1117;
+      padding: 12px;
+    }
+
+    .alert-item.pending {
+      border-color: rgba(88, 166, 255, 0.45);
+      background: rgba(88, 166, 255, 0.06);
+    }
+
+    .alert-item.approved {
+      border-color: rgba(35, 134, 54, 0.45);
+      background: rgba(35, 134, 54, 0.08);
+    }
+
+    .alert-item.rejected {
+      border-color: rgba(218, 54, 51, 0.45);
+      background: rgba(218, 54, 51, 0.08);
+    }
+
+    .alert-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .alert-title {
+      color: var(--text-highlight);
+      font-weight: 600;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+
+    .alert-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .alert-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      background: rgba(88, 166, 255, 0.12);
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .alert-badge.success {
+      background: rgba(35, 134, 54, 0.12);
+      color: #7ee787;
+    }
+
+    .alert-badge.error {
+      background: rgba(218, 54, 51, 0.12);
+      color: #ff7b72;
+    }
+
+    .news-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
     .card {
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 18px;
-      background: rgba(255, 255, 255, 0.04);
+      border-radius: 10px;
+      padding: 20px;
+      background: #0d1117;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
     }
+
+    .card:hover {
+      border-color: #8b949e;
+      transform: translateY(-2px);
+    }
+
+    .card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+      background: rgba(88, 166, 255, 0.05);
+    }
+
     .pill {
       display: inline-block;
-      padding: 6px 10px;
-      border-radius: 999px;
+      padding: 4px 8px;
+      border-radius: 20px;
       font-size: 11px;
-      letter-spacing: 0.12em;
+      font-weight: 600;
       text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--muted);
-      margin-bottom: 14px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      margin-bottom: 12px;
     }
-    .headline { font-size: 19px; line-height: 1.3; margin-bottom: 10px; }
-    .summary { color: var(--muted); line-height: 1.45; font-size: 14px; }
+
+    .headline { 
+      font-size: 16px; 
+      line-height: 1.4; 
+      margin-bottom: 8px; 
+      color: var(--text-highlight);
+      font-weight: 600;
+    }
+
+    .summary { 
+      color: var(--muted); 
+      line-height: 1.5; 
+      font-size: 13px; 
+      margin-bottom: 16px;
+    }
+
     .meta {
       display: flex;
       justify-content: space-between;
-      gap: 10px;
       color: var(--muted);
       font-size: 12px;
-      margin-top: 16px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
     }
-    .status {
-      margin-top: 18px;
-      color: var(--muted);
-      min-height: 20px;
+
+    #loadingOverlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(22, 27, 34, 0.8);
+      backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      direction: column;
+      color: var(--accent);
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
     }
+    
+    #loadingOverlay.active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(88, 166, 255, 0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     @media (max-width: 900px) {
       .wrap { grid-template-columns: 1fr; }
     }
@@ -131,282 +377,432 @@
 </head>
 <body>
   <div class="wrap">
+    
+    <!-- LEFT PANEL: CONTROLS -->
     <section class="panel">
       <h1>Demo News Forge</h1>
-      <p class="lead">Generate fake disaster headlines for payouts and optionally push them into the Django demo event API.</p>
+      <p class="lead">Mock an emergency event, but note that the backend now cross-checks real news before it will approve any claim.</p>
 
-      <div class="field">
-        <label for="phone">Your Phone Number</label>
-        <input id="phone" type="tel" placeholder="10-digit mobile number" maxlength="10" pattern="[0-9]{10}">
+      <div class="location-bar">
+        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+          <label for="city">City</label>
+          <input id="city" value="Mumbai" oninput="markLocationDirty()">
+        </div>
+        <div class="form-group" style="margin-bottom: 0; flex: 1;">
+          <label for="area">Area</label>
+          <input id="area" value="Andheri East" oninput="markLocationDirty()">
+        </div>
+        <button class="location-btn" onclick="fetchReverseGeolocation()" title="Use my GPS coordinates">📍 Auto GPS</button>
       </div>
 
-      <div class="field">
-        <label for="city">City</label>
-        <input id="city" value="Mumbai">
-      </div>
-
-      <div class="field">
-        <label for="area">Area</label>
-        <input id="area" value="Andheri East">
-      </div>
-
-      <div class="field">
-        <label for="eventType">Event Type</label>
+      <div class="form-group">
+        <label for="eventType">Event Category</label>
         <select id="eventType">
-          <option value="flood">Flood</option>
-          <option value="high_rain">High Rain</option>
-          <option value="high_temperature">High Temperature</option>
-          <option value="strike">Strike</option>
-          <option value="protest">Protest</option>
-          <option value="curfew">Curfew</option>
-          <option value="disaster">Disaster</option>
+          <option value="flood">Flood / Rain</option>
+          <option value="high_temperature">Heatwave</option>
+          <option value="strike">Local Strike</option>
+          <option value="protest">Public Protest</option>
+          <option value="disaster" selected>General Disaster</option>
         </select>
       </div>
 
-      <div class="field">
-        <label for="severity">Severity</label>
+      <div class="form-group">
+        <label for="severity">Severity Level</label>
         <select id="severity">
+          <option value="mild">Mild</option>
           <option value="moderate">Moderate</option>
           <option value="severe" selected>Severe</option>
           <option value="emergency">Emergency</option>
-          <option value="mild">Mild</option>
         </select>
       </div>
 
-      <div class="field">
-        <label for="summary">Summary</label>
-        <textarea id="summary">Delivery routes disrupted, rider movement down, and platform operations delayed across the area.</textarea>
+      <div class="form-group">
+        <label for="summary">AI Context Summary</label>
+        <textarea id="summary">Major disruptions observed over the latest operational grids. Riders reported immediate delays.</textarea>
       </div>
 
-      <div class="btn-row">
-        <button class="primary" id="generateBtn">Generate Headlines</button>
-        <button class="secondary" id="publishBtn">Publish to Backend</button>
+      <div class="buttons">
+        <button class="secondary" id="generateBtn">Preview News</button>
+        <button class="primary" id="publishBtn">Publish News</button>
       </div>
 
-      <div class="status" id="statusText">Ready.</div>
+      <div class="status-box" id="statusText">System initialized & ready.</div>
+
+      <div class="alerts-section">
+        <div class="alerts-header">
+          <h2 style="margin: 0; font-size: 16px;">Matched City Alerts</h2>
+          <p id="alertsCount">0 alerts for Mumbai</p>
+        </div>
+        <div class="alert-list" id="alertsFeed"></div>
+      </div>
     </section>
 
+    <!-- RIGHT PANEL: PREVIEWS -->
     <section class="panel">
-      <h2>Generated Stories</h2>
-      <p class="lead">Use one of these headlines to trigger claims in the app. Publishing stores the selected headline as an active demo event.</p>
+      <h2>Generated Headlines</h2>
       <div class="news-grid" id="newsGrid"></div>
+      
+      <div id="loadingOverlay">
+        <div class="spinner"></div>
+        Processing Geolocation...
+      </div>
     </section>
+
   </div>
 
   <script>
+    const GEO_API_KEY = "68ba83244a2ff811480127gzja3e139";
+    const API_BASE_URL = window.__GIGSHILD_API_BASE_URL__ || "http://127.0.0.1:8000";
+    let generated = [];
+    let selectedIndex = 0;
+    let cityAlerts = [];
+    
+    // Tracks accurate coords for backend publishing.
+    let activeCoords = null; 
+    let locationIsDirty = true; // True if user manually typed city/area and broke sync
+
     const templates = {
       flood: [
-        "{city} flood alert strands delivery workers near {area}",
-        "Waterlogging shuts key roads across {area} in {city}",
-        "{city} riders face payout losses after flood surge in {area}"
-      ],
-      high_rain: [
-        "Heavy rain warning slows orders across {area}, {city}",
-        "{city} dispatch network hit by high rainfall in {area}",
-        "Continuous showers reduce gig worker activity in {area}"
+        "{city} submerged: Waterlogging brings {area} to a standstill",
+        "Red alert triggered for {area} in {city} after flash floods",
+        "Rider network collapses in {area} due to extreme rainfall in {city}"
       ],
       high_temperature: [
-        "{city} heat spike crosses safety threshold in {area}",
-        "High temperature emergency disrupts afternoon shifts in {area}",
-        "Extreme heat lowers rider activity across {city}"
+        "Heatwave advisory: {city} temperatures break safety limits reaching {area}",
+        "Gig workers halt deliveries in {area} as extreme heat scorches {city}"
       ],
       strike: [
-        "Transport strike freezes deliveries around {area}, {city}",
-        "{city} rider movement drops as strike expands near {area}",
-        "Strike pressure leaves platforms understaffed in {area}"
+        "Major transport strike declared across {area}, {city}",
+        "Last-mile movement frozen in {area} as worker strike expands"
       ],
       protest: [
-        "Street protest blocks last-mile movement in {area}",
-        "{city} deliveries delayed after protest crowds gather in {area}",
-        "Local protest creates payout losses for riders in {area}"
-      ],
-      curfew: [
-        "Curfew notice halts evening delivery windows in {area}",
-        "{city} imposes curfew restrictions affecting gig workers",
-        "Curfew enforcement cuts order volume across {area}"
+        "Highway protests barricade delivery vectors across {area}",
+        "{city} mobility plummets as {area} gathers mass curfews"
       ],
       disaster: [
-        "Emergency disruption declared across {area}, {city}",
-        "{city} disaster response impacts route access in {area}",
-        "Gig workers report severe payout drop amid crisis in {area}"
+        "Emergency response mobilized for crisis spreading through {area}, {city}",
+        "Platform activities suspended across {city} impacting {area}"
       ]
     };
 
-    let generated = [];
-    let selectedIndex = 0;
+    function setStatus(msg, isError = false) {
+      const box = document.getElementById("statusText");
+      box.textContent = msg;
+      if (isError) {
+        box.style.color = "var(--danger)";
+        box.style.background = "rgba(218, 54, 51, 0.1)";
+        box.style.borderColor = "rgba(218, 54, 51, 0.2)";
+      } else {
+        box.style.color = "var(--accent)";
+        box.style.background = "rgba(88, 166, 255, 0.1)";
+        box.style.borderColor = "rgba(88, 166, 255, 0.2)";
+      }
+    }
 
-    function fill(template, city, area) {
+    function normalizeCity(value) {
+      return (value || "").trim().toLowerCase();
+    }
+
+    function getCityLabel() {
+      const city = document.getElementById("city").value.trim();
+      return city || "Mumbai";
+    }
+
+    function renderCityAlerts() {
+      const feed = document.getElementById("alertsFeed");
+      const city = getCityLabel();
+      document.getElementById("alertsCount").textContent = `${cityAlerts.length} alert${cityAlerts.length === 1 ? "" : "s"} for ${city}`;
+      feed.innerHTML = "";
+
+      if (cityAlerts.length === 0) {
+        feed.innerHTML = `<p class="lead" style="margin: 0;">No alerts matched for ${city} yet. Publish one to activate city-specific alerts.</p>`;
+        return;
+      }
+
+      cityAlerts.forEach((alert) => {
+        const item = document.createElement("article");
+        const statusClass = alert.is_pending ? "pending" : (alert.is_active ? "approved" : "rejected");
+        item.className = `alert-item ${statusClass}`;
+
+        const eventLabel = [alert.event_type, alert.severity].filter(Boolean).join(" • ");
+        const timeLabel = alert.created_at ? new Date(alert.created_at).toLocaleString() : (alert.is_pending ? "Publishing now" : "Just added");
+        const statusLabel = alert.is_pending ? "Pending" : (alert.is_active ? "Active" : "Inactive");
+
+        item.innerHTML = `
+          <div class="alert-topline">
+            <span class="alert-badge ${alert.is_pending ? "" : (alert.is_active ? "success" : "error")}">${statusLabel}</span>
+            <span>${timeLabel}</span>
+          </div>
+          <div class="alert-title">${alert.headline || "Untitled alert"}</div>
+          <div class="alert-meta">
+            <span>🌍 ${alert.city || city}</span>
+            <span>📌 ${alert.area || "General"}</span>
+            <span>${eventLabel || "event"}</span>
+          </div>
+        `;
+
+        feed.appendChild(item);
+      });
+    }
+
+    async function loadCityAlerts(city) {
+      const targetCity = (city || getCityLabel()).trim() || "Mumbai";
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/demo-events/?city=${encodeURIComponent(targetCity)}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const events = Array.isArray(data.events) ? data.events : [];
+        cityAlerts = events.map((event) => ({ ...event, is_pending: false }));
+        renderCityAlerts();
+      } catch (error) {
+        cityAlerts = [];
+        renderCityAlerts();
+        setStatus(`Unable to load city alerts for ${targetCity}: ${error.message}`, true);
+      }
+    }
+
+    function markLocationDirty() {
+      locationIsDirty = true;
+      activeCoords = null;
+    }
+
+    function fillTemplate(template, city, area) {
       return template.replaceAll("{city}", city).replaceAll("{area}", area);
     }
 
-    function generateStories() {
-      const city = document.getElementById("city").value.trim() || "Mumbai";
-      const area = document.getElementById("area").value.trim() || "Central Zone";
-      const eventType = document.getElementById("eventType").value;
-      const severity = document.getElementById("severity").value;
-      const summary = document.getElementById("summary").value.trim();
+    function getFormState() {
+      return {
+        city: document.getElementById("city").value.trim() || "Mumbai",
+        area: document.getElementById("area").value.trim() || "Central",
+        eventType: document.getElementById("eventType").value,
+        severity: document.getElementById("severity").value,
+        summary: document.getElementById("summary").value.trim()
+      };
+    }
 
-      generated = (templates[eventType] || templates.disaster).map((template, index) => ({
-        headline: fill(template, city, area),
-        city,
-        area,
-        event_type: eventType,
-        severity,
-        summary: `${summary} Demo headline ${index + 1}.`
+    function generateStories() {
+      const form = getFormState();
+      const list = templates[form.eventType] || templates.disaster;
+      
+      generated = list.map((template, idx) => ({
+        headline: fillTemplate(template, form.city, form.area),
+        city: form.city,
+        area: form.area,
+        event_type: form.eventType,
+        severity: form.severity,
+        summary: `${form.summary} Generated tag #${idx + 1}`
       }));
+      
       selectedIndex = 0;
       renderStories();
-      setStatus(`Generated ${generated.length} ${eventType} headlines for ${city}.`);
+      void loadCityAlerts(form.city);
+      setStatus(`Generated previews for ${form.city} / ${form.area}. Select a card to publish.`);
     }
 
     function renderStories() {
       const grid = document.getElementById("newsGrid");
       grid.innerHTML = "";
-      generated.forEach((story, index) => {
+      
+      if (generated.length === 0) {
+        grid.innerHTML = "<p class='lead'>Click Preview News to generate headlines based on your parameters.</p>";
+        return;
+      }
+
+      generated.forEach((story, idx) => {
         const card = document.createElement("article");
-        card.className = "card";
-        card.style.outline = index === selectedIndex ? "2px solid rgba(255,122,89,0.7)" : "none";
+        card.className = "card" + (idx === selectedIndex ? " selected" : "");
+        
         card.innerHTML = `
           <div class="pill">${story.event_type} • ${story.severity}</div>
           <div class="headline">${story.headline}</div>
           <div class="summary">${story.summary}</div>
           <div class="meta">
-            <span>${story.city}</span>
-            <span>${story.area}</span>
+            <span>🌍 ${story.city}</span>
+            <span>📌 ${story.area}</span>
           </div>
         `;
+        
         card.addEventListener("click", () => {
-          selectedIndex = index;
+          selectedIndex = idx;
           renderStories();
         });
+        
         grid.appendChild(card);
       });
     }
 
-    async function publishSelected() {
-      if (!generated.length) {
-        generateStories();
+    /** 
+     * Geolocator 1: Proper Reverse Geocoding via navigator
+     * Fetches exact browser GPS, uses Map API to resolve City & State,
+     * fills the UI, and saves exact coordinates. 
+     */
+    async function fetchReverseGeolocation() {
+      if (!navigator.geolocation) {
+        setStatus("Geolocation is not supported by your browser.", true);
+        return;
       }
+      
+      setStatus("📍 Locating your device...");
+      document.getElementById("loadingOverlay").classList.add("active");
+      
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        
+        try {
+          const res = await fetch(`https://geocode.maps.co/reverse?lat=${lat}&lon=${lng}&api_key=${GEO_API_KEY}`);
+          const data = await res.json();
+          
+          if (data && data.address) {
+            const addr = data.address;
+            const city = addr.city || addr.town || addr.county || addr.state_district || "Unknown Region";
+            const area = addr.suburb || addr.neighbourhood || addr.road || "Local Area";
+            
+            document.getElementById("city").value = city;
+            document.getElementById("area").value = area;
+            
+            activeCoords = { lat, lng };
+            locationIsDirty = false;
+            
+            setStatus(`📍 Saved precise location: ${city} (${lat.toFixed(3)}, ${lng.toFixed(3)})`);
+            generateStories(); // Auto-regenerate 
+          } else {
+            throw new Error("Unable to resolve address from coordinates.");
+          }
+        } catch (error) {
+          setStatus(`Failed to reverse geocode: ${error.message}`, true);
+        } finally {
+          document.getElementById("loadingOverlay").classList.remove("active");
+        }
+      }, (error) => {
+        setStatus(`Geolocation failed: ${error.message}`, true);
+        document.getElementById("loadingOverlay").classList.remove("active");
+      });
+    }
+
+    /**
+     * Geolocator 2: Proper Forward Geocoding 
+     * If user typed in strings manually (locationIsDirty), fetch precise coordinates for the backend.
+     */
+    async function forceForwardGeocode(city, area) {
+      try {
+        const q = encodeURIComponent(`${area}, ${city}`);
+        const res = await fetch(`https://geocode.maps.co/search?q=${q}&api_key=${GEO_API_KEY}`);
+        const data = await res.json();
+        
+        if (data && data.length > 0) {
+          return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+        }
+      } catch (e) {
+        console.warn("Forward geocode minor fail", e);
+      }
+      return null;
+    }
+
+    async function publishEvent() {
+      if (!generated.length) generateStories();
       const story = generated[selectedIndex];
       
-      // ✅ Always ask for phone number - check both input field and prompt
-      let phone = document.getElementById("phone")?.value?.trim() || "";
-      
-      if (!phone) {
-        phone = prompt("Enter your 10-digit mobile number:", "");
-      }
-      
-      if (!phone) {
-        setStatus("❌ Phone number is required to publish event.");
-        return;
-      }
-      
-      // ✅ Validate phone number format (10 digits)
-      if (!/^\d{10}$/.test(phone.trim())) {
-        setStatus("❌ Invalid phone number. Please enter 10 digits only.");
-        return;
-      }
-      
-      setStatus("⏳ Publishing to backend...");
       const publishBtn = document.getElementById("publishBtn");
       publishBtn.disabled = true;
-      publishBtn.style.opacity = "0.5";
+      document.getElementById("loadingOverlay").classList.add("active");
 
+      const pendingAlert = {
+        id: `pending-${Date.now()}`,
+        city: story.city,
+        area: story.area,
+        event_type: story.event_type,
+        severity: story.severity,
+        headline: story.headline,
+        is_active: true,
+        is_pending: true,
+        created_at: new Date().toISOString(),
+      };
+      cityAlerts = [pendingAlert, ...cityAlerts];
+      renderCityAlerts();
+      
       try {
-        // ✅ Comprehensive city coordinates for all major Indian cities
-        const cityCoordinates = {
-          "mumbai": { lat: 19.0760, lng: 72.8777 },
-          "delhi": { lat: 28.7041, lng: 77.1025 },
-          "bangalore": { lat: 12.9716, lng: 77.5946 },
-          "bengaluru": { lat: 12.9716, lng: 77.5946 },
-          "hyderabad": { lat: 17.3850, lng: 78.4867 },
-          "kolkata": { lat: 22.5726, lng: 88.3639 },
-          "chennai": { lat: 13.0827, lng: 80.2707 },
-          "pune": { lat: 18.5204, lng: 73.8567 },
-          "ahmedabad": { lat: 23.0225, lng: 72.5714 },
-          "jaipur": { lat: 26.9124, lng: 75.7873 },
-          "lucknow": { lat: 26.8467, lng: 80.9462 },
-          "vadodara": { lat: 22.3072, lng: 73.1812 },
-          "surat": { lat: 21.1702, lng: 72.8311 },
-          "indore": { lat: 22.7196, lng: 75.8577 },
-          "nagpur": { lat: 21.1458, lng: 79.0882 },
-          "chandigarh": { lat: 30.7333, lng: 76.7794 },
-          "kochi": { lat: 9.9312, lng: 76.2673 },
-          "bhopal": { lat: 23.1815, lng: 79.9864 },
-          "visakhapatnam": { lat: 17.6869, lng: 83.2185 },
-          "coimbatore": { lat: 11.0066, lng: 76.9655 },
-          "guwahati": { lat: 26.1445, lng: 91.7362 },
-        };
+        // Step 1: Ensure exact latitude & longitude using dynamic resolving
+        let sendCoords = activeCoords;
+        if (locationIsDirty || !sendCoords) {
+          setStatus(`🔍 Forward geocoding "${story.area}, ${story.city}" to get distance-accurate coords...`);
+          sendCoords = await forceForwardGeocode(story.city, story.area);
+        }
         
-        // ✅ Use city from form field, fallback to story city
-        const formCity = document.getElementById("city").value.trim() || story.city;
-        const cityLower = formCity.toLowerCase();
-        const coords = cityCoordinates[cityLower] || { lat: 19.0760, lng: 72.8777 };
+        // Final fallback just in case Maps API rate limits out
+        if (!sendCoords) {
+            sendCoords = { lat: 19.0760, lng: 72.8777 }; // Default Mumbai Safezone
+            setStatus(`⚠️ API limit reached. Defaulting coordinates to regional fallback.`);
+        }
 
-        // ✅ Optimized request - minimal payload
         const payload = {
-          phone: phone.trim(),
           city: story.city,
           area: story.area,
           event_type: story.event_type,
           severity: story.severity,
           headline: story.headline,
           summary: story.summary,
-          event_latitude: coords.lat,
-          event_longitude: coords.lng,
-          source: "fake-news-web",
+          event_latitude: sendCoords.lat,
+          event_longitude: sendCoords.lng,
+          source: "web-ui-gen",
           is_active: true
         };
 
-        // ✅ Fast backend request with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        setStatus(`📡 Deploying event payload to backend at coordinates (${sendCoords.lat.toFixed(4)}, ${sendCoords.lng.toFixed(4)})...`);
 
-        const response = await fetch("http://127.0.0.1:8000/api/demo-events/", {
+        const res = await fetch(`${API_BASE_URL}/api/demo-events/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal
+          body: JSON.stringify(payload)
         });
 
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          let errorMsg = `Backend error: ${response.status}`;
-          try {
-            const errorData = await response.json();
-            errorMsg = errorData.message || errorMsg;
-          } catch (e) {
-            // Ignore JSON parse errors
-          }
-          throw new Error(errorMsg);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `HTTP Server Error ${res.status}`);
         }
 
-        const result = await response.json();
-        const eventId = result.event?.id || result.id || 'created';
+        const data = await res.json();
+
+        cityAlerts = [];
+        await loadCityAlerts(story.city);
         
-        setStatus(`✅ SUCCESS! Event #${eventId} published to backend • Phone: ${phone}`);
+        // Provide successful visual feedback detailing distance and claims.
+        const claims = data.generated_claims || [];
+        const claimCount = data.claims_count || 0;
         
-        // ✅ Clear phone if from input for next use
-        document.getElementById("phone").value = "";
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          setStatus(`❌ Request timeout. Backend took too long to respond.`);
+        let report = `✅ Event #${data.event.id} Published successfully!`;
+        if (claimCount > 0) {
+            // Check if backend calculated distance and location match in the generated claim
+            const approvedClaims = claims.filter((claim) => claim.status === "APPROVED");
+            const finalScore = claims[0].final_score !== undefined ? claims[0].final_score : 'N/A';
+            const aiScore = claims[0].ai_score !== undefined ? claims[0].ai_score : 'N/A';
+            let scoreMeta = `Final: ${finalScore} | AI: ${aiScore}`;
+
+            report += `\n🎯 Triggered ${claimCount} claim(s). [${scoreMeta}]`;
+            if (approvedClaims.length > 0) {
+                report += `\n✅ ${approvedClaims.length} claim(s) approved after validation.`;
+            } else {
+                report += `\n🛑 Backend rejected the synthetic event because it was not supported by real-news evidence.`;
+            }
         } else {
-          setStatus(`❌ Publish failed: ${error.message}`);
+            report += `\n⚠️ Event registered, but no dynamic claims executed for this location. Check region/distance.`;
         }
+        
+        setStatus(report);
+      } catch (error) {
+        setStatus(`❌ Deploy failed: ${error.message}`, true);
       } finally {
         publishBtn.disabled = false;
-        publishBtn.style.opacity = "1";
+        document.getElementById("loadingOverlay").classList.remove("active");
       }
     }
 
-    function setStatus(message) {
-      document.getElementById("statusText").textContent = message;
-    }
-
     document.getElementById("generateBtn").addEventListener("click", generateStories);
-    document.getElementById("publishBtn").addEventListener("click", publishSelected);
+    document.getElementById("publishBtn").addEventListener("click", publishEvent);
+    
+    // Initial setup
     generateStories();
   </script>
 </body>

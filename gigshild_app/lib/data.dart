@@ -81,24 +81,74 @@ class CityNewsItem {
   }
 }
 
+class CityAlertItem {
+  const CityAlertItem({
+    required this.id,
+    required this.city,
+    required this.area,
+    required this.eventType,
+    required this.severity,
+    required this.headline,
+    required this.summary,
+    required this.source,
+    required this.effectiveDate,
+    required this.createdAt,
+    required this.isActive,
+  });
+
+  final int id;
+  final String city;
+  final String area;
+  final String eventType;
+  final String severity;
+  final String headline;
+  final String summary;
+  final String source;
+  final String effectiveDate;
+  final String createdAt;
+  final bool isActive;
+
+  factory CityAlertItem.fromMap(Map<String, dynamic> map) {
+    return CityAlertItem(
+      id: int.tryParse("${map["id"] ?? 0}") ?? 0,
+      city: (map["city"] ?? "").toString(),
+      area: (map["area"] ?? "").toString(),
+      eventType: (map["event_type"] ?? "").toString(),
+      severity: (map["severity"] ?? "").toString(),
+      headline: (map["headline"] ?? "").toString(),
+      summary: (map["summary"] ?? "").toString(),
+      source: (map["source"] ?? "").toString(),
+      effectiveDate: (map["effective_date"] ?? "").toString(),
+      createdAt: (map["created_at"] ?? "").toString(),
+      isActive: map["is_active"] == true,
+    );
+  }
+}
+
 class CityDataBundle {
   const CityDataBundle({
     required this.city,
     required this.weather,
     required this.news,
+    required this.activeEvents,
     required this.errors,
   });
 
   final String city;
   final CityWeatherData? weather;
   final List<CityNewsItem> news;
+  final List<CityAlertItem> activeEvents;
   final Map<String, dynamic> errors;
 
-  bool get hasAnyContent => weather != null || news.isNotEmpty;
+  bool get hasAnyContent =>
+      weather != null || news.isNotEmpty || activeEvents.isNotEmpty;
 
   factory CityDataBundle.fromMap(Map<String, dynamic> map) {
     final weatherMap = map["weather"];
     final rawNews = map["news"] is List ? map["news"] as List : const [];
+    final rawEvents = map["active_events"] is List
+        ? map["active_events"] as List
+        : const [];
 
     return CityDataBundle(
       city: (map["city"] ?? AppState.city).toString(),
@@ -108,6 +158,10 @@ class CityDataBundle {
       news: rawNews
           .whereType<Map<String, dynamic>>()
           .map(CityNewsItem.fromMap)
+          .toList(),
+      activeEvents: rawEvents
+          .whereType<Map<String, dynamic>>()
+          .map(CityAlertItem.fromMap)
           .toList(),
       errors: map["errors"] is Map<String, dynamic>
           ? Map<String, dynamic>.from(map["errors"])
