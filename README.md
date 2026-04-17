@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://via.placeholder.com/150/000000/FFFFFF?text=GigShield" alt="GigShield Logo" width="150" height="150" />
-  <h1>🛡️ GigShield </h1>
+  <h1>🛡️ GigShield 2.0 </h1>
   <p><b>AI-Powered, Real-Time Protection Architecture for the Modern Gig Workforce</b></p>
   <p><i>Verifying shifts, automating fair premiums, and validating claims through Machine Learning, OCR pipelines, and Multi-Signal Verification.</i></p>
 </div>
@@ -161,19 +161,33 @@ To manage the platform and test live event triggers, we have mapped two importan
 
 ---
 
-## 📍 Hackathon Pitch Demo Flow
+## 📸 Demo Media (Google Drive)
 
-To truly experience the GigShield ecosystem during judging:
-1. **Onboard:** Register a new user and upload a Zomato ID screenshot. Watch the CV pipeline automatically extract partner details.
-2. **Start Shift:** Initiate an active session. Pick a selfie and inject simulated GPS coordinates.
-3. **Continuous Auditing:** Trigger a random selfie validation check mid-shift. If you use a different face, the session will lock.
-4. **End Shift & Auto-Income:** Conclude the session, then upload dummy Zomato earnings screenshots. The OCR pipeline normalizes the image, extracts the total income, and updates the user's ledger automatically.
-5. **Simulate a Crash (Claim):** Submit an emergency claim. GigShield’s engine will instantly pull live weather/news via HuggingFace NLP matching your injected GPS, and algorithmically approve/deny the claim instantly.
-6. **Review Algorithmic Premium:** Check the Premium Dashboard showing the AI-calculated, adaptive premium shaped exactly to your shift's data.
+All demo assets required to evaluate the GigShield system can be found in our shared Google Drive, including:
+- **Photo Verification Images**
+- **Demo Zomato IDs for OCR**
+- **Demo Order History & Session Screenshots**
+
+👉 **[https://drive.google.com/drive/u/0/folders/1aqMzJ0KxyQ8iEqEPrH06L_D2ZMS1GASs]**
+
+---
+
+## 📊 Pitch Deck
+
+Our complete hackathon pitch deck is publicly accessible. It covers the problem statement, our solution architecture, and technical implementation details.
+
+👉 **[https://docs.google.com/presentation/d/1pDiF8RnNKl1MMB8_zu_HiAdLK-A3_yIj/edit?slide=id.p10#slide=id.p10]**
+
+---
+
+## 🎥 Pitch Video
+
+Watch our hackathon pitch video to see a complete live demonstration of our architecture and mobile app in action!
+
+👉 **[https://youtu.be/ImL60Ah1OQM?si=3X5ZQFLPrVA6e7Er]**
 
 ---
 
 <div align="center">
-  <b>Built for the Gig Economy. Protected by Data.</b><br>
-  <i>#InsurTech #AI #GigEconomy #Hackathon</i>
+  <b>Built for the Gig Economy.</b>
 </div>
